@@ -6,9 +6,9 @@
   "description": "Script (PowerShell, BAT, Bash) runner for endpoints",
   "hasAdminPanel": false,
   "homepage": "https://github.com/josephang/CompliancePowerScript",
-  "changelogUrl": "https://raw.githubusercontent.com/josephang/CompliancePowerScript/master/changelog.md",
-  "configUrl": "https://raw.githubusercontent.com/josephang/CompliancePowerScript/master/config.json",
-  "downloadUrl": "https://github.com/josephang/CompliancePowerScript/archive/master.zip",
+  "changelogUrl": "https://raw.githubusercontent.com/josephang/CompliancePowerScript/main/changelog.md",
+  "configUrl": "https://raw.githubusercontent.com/josephang/CompliancePowerScript/main/config.json",
+  "downloadUrl": "https://github.com/josephang/CompliancePowerScript/archive/main.zip",
   "repository": {
     "type": "git",
     "url": "https://github.com/josephang/CompliancePowerScript.git"
