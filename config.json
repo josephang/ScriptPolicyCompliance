@@ -1,14 +1,14 @@
 {
   "name": "CompliancePowerScript",
   "shortName": "scripttask",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Joseph Ang & Ryan Blenis",
   "description": "Compliance Engine & Script Runner with GPO-style policies for endpoints",
   "hasAdminPanel": false,
   "homepage": "https://github.com/josephang/CompliancePowerScript",
   "changelogUrl": "https://raw.githubusercontent.com/josephang/CompliancePowerScript/main/changelog.md",
   "configUrl": "https://raw.githubusercontent.com/josephang/CompliancePowerScript/main/config.json",
-  "downloadUrl": "https://github.com/josephang/CompliancePowerScript/archive/main.zip",
+  "downloadUrl": "https://github.com/josephang/CompliancePowerScript/archive/refs/tags/v1.0.1.zip",
   "repository": {
     "type": "git",
     "url": "https://github.com/josephang/CompliancePowerScript.git"
