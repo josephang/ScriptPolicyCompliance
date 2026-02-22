@@ -281,7 +281,7 @@ module.exports.scripttask = function (parent) {
 
     obj.onDeviceRefreshEnd = function () {
         pluginHandler.registerPluginTab({
-            tabTitle: 'ScriptTask',
+            tabTitle: 'ScriptPolicyCompliance',
             tabId: 'pluginScriptTask'
         });
         QA('pluginScriptTask', '<iframe id="pluginIframeScriptTask" style="width: 100%; height: 700px; overflow: auto" scrolling="yes" frameBorder=0 src="/pluginadmin.ashx?pin=scripttask&user=1&nc=' + Math.random() + '" />');
