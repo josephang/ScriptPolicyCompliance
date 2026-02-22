@@ -742,6 +742,12 @@
 
       <!-- Detail Drill-down Panel -->
       <div id="cev-detail" style="display:none;">
+        <div style="float: right;">
+          <button onclick="downloadDeviceDetailsCSV()"
+            style="margin-right:10px; background:#17a2b8; color:#fff; border:none; padding:4px 10px; border-radius:3px; cursor:pointer;"
+            title="Download all details as CSV">Download CSV</button>
+          <span class="flink" style="font-size:16px;" onclick="goCompliance();">&#10006;</span>
+        </div>
         <div style="margin-bottom:10px;">
           <span class="flink" onclick="showComplianceOverview();">&#8592; Back to Overview</span>
           &nbsp; <strong id="cev-detail-name" style="font-size:16px;"></strong>
@@ -778,6 +784,9 @@
             <tbody id="cev-boot-tbl"></tbody>
           </table>
           <div class="cev-section-title" style="margin-top:14px;" id="cev-power-title">&#9889; Power History</div>
+          <div id="cev-power-timeline"
+            style="width:100%; height:24px; background:#e0e0e0; display:flex; margin-bottom:8px; border:1px solid #ccc; border-radius:3px; overflow:hidden;"
+            title="Power Timeline (Green = Connected/On, Gray = Offline)"></div>
           <table>
             <thead>
               <tr>
@@ -1506,6 +1515,13 @@
 
     parent.pluginHandler.scripttask.complianceOverview = function (message) {
       complianceOverviewData = message.event.overview || [];
+      if (parent && parent.nodes) {
+        parent.nodes.forEach(function (n) {
+          if (n.icon && !complianceOverviewData.find(function (c) { return c.nodeId === n._id; })) {
+            complianceOverviewData.push({ nodeId: n._id });
+          }
+        });
+      }
       complianceOverviewData.sort(function (a, b) {
         var av = getNodeName(a.nodeId).toLowerCase(), bv = getNodeName(b.nodeId).toLowerCase();
         return av < bv ? -1 : av > bv ? 1 : 0;
@@ -1591,6 +1607,7 @@
       if (!message.event || !message.event.nodeId) return;
       var nodeId = message.event.nodeId;
       var events = message.event.events || [];
+      console.log('ScriptCompliancePowerHistory debug events:', events);
 
       // Update detail drill-down
       var pt = document.getElementById('cev-power-tbl');
@@ -1600,16 +1617,84 @@
         } else {
           var html = '';
           events.forEach(function (ev, idx) {
-            // limit to 50 to avoid massive tables
-            if (idx > 50) return;
-            var actionDesc = ev.msg || ev.action || "State " + ev.state;
+            // limit to 500 to avoid massive tables
+            if (idx > 500) return;
+            var actionDesc = ev.msg || ev.action || "State " + (ev.state !== undefined ? ev.state : ev.s);
             html += '<tr><td>' + fmtTs((ev.time && ev.time.getTime) ? ev.time.getTime() / 1000 : ev.time ? (typeof ev.time === 'string' ? Date.parse(ev.time) / 1000 : ev.time) : 0) + '</td><td>' + actionDesc + '</td></tr>';
           });
-          if (events.length > 50) html += '<tr><td colspan="2" style="color:#999;font-style:italic;">...and ' + (events.length - 50) + ' more events.</td></tr>';
+          if (events.length > 500) html += '<tr><td colspan="2" style="color:#999;font-style:italic;">...and ' + (events.length - 500) + ' more events.</td></tr>';
           pt.innerHTML = html;
+
+          // Draw rudimentary power timeline "bars"
+          var tl = document.getElementById('cev-power-timeline');
+          if (tl) {
+            var tlHtml = '';
+            events.sort(function (a, b) { return (a.time || 0) - (b.time || 0); });
+            var lastState = 0; // 0=off, 1=on
+            var now = Date.now(), minTime = events.length ? (events[0].time || now - 86400000) : now;
+            var range = now - minTime;
+            if (range <= 0) range = 1;
+
+            // Very basic state assumption based on typical MeshCentral events
+            for (var i = 0; i < events.length; i++) {
+              var e = events[i];
+              var eTime = typeof e.time === 'number' ? e.time : new Date(e.time).getTime();
+              var isOff = (e.msg && e.msg.toLowerCase().includes('disconnect')) || e.state === 0 || e.s === 0 || e.action === 'agentDisconnected';
+              var isOn = (e.msg && e.msg.toLowerCase().includes('connect')) || e.state === 1 || e.state === 2 || e.s === 1 || e.s === 2;
+
+              var nextTime = (i + 1 < events.length) ? (typeof events[i + 1].time === 'number' ? events[i + 1].time : new Date(events[i + 1].time).getTime()) : now;
+              var duration = nextTime - eTime;
+              var percent = (duration / range) * 100;
+
+              if (isOn) lastState = 1;
+              else if (isOff) lastState = 0;
+
+              var color = lastState ? '#28a745' : '#dc3545';
+              if (percent > 0.05) {
+                tlHtml += '<div style="width:' + percent + '%; background:' + color + '; height:100%; border-right:1px solid rgba(0,0,0,0.1);" title="' + new Date(eTime).toLocaleString() + ' - ' + (e.msg || 'State changed') + '"></div>';
+              }
+            }
+            if (!tlHtml) tlHtml = '<div style="width:100%; background:#ccc; height:100%; text-align:center; font-size:11px; line-height:24px; color:#555;">Waiting for more connection data...</div>';
+            tl.innerHTML = tlHtml;
+          }
         }
       }
     };
+
+    function downloadDeviceDetailsCSV() {
+      function getTableCSV(tableId, title) {
+        var tbl = document.getElementById(tableId);
+        if (!tbl) return '';
+        var rows = tbl.querySelectorAll('tr');
+        var csv = title + '\\n';
+        rows.forEach(function (r) {
+          var cells = r.querySelectorAll('td, th');
+          var rowData = [];
+          cells.forEach(function (c) {
+            var txt = c.innerText.replace(/"/g, '""');
+            rowData.push('"' + txt + '"');
+          });
+          csv += rowData.join(',') + '\\n';
+        });
+        return csv + '\\n';
+      }
+      var devName = document.getElementById('cev-detail-name').innerText;
+      var fileData = "Device Name: " + devName + "\\n\\n";
+      fileData += getTableCSV('cev-ip-tbl', 'IP History');
+      fileData += getTableCSV('cev-user-tbl', 'Last User History');
+      fileData += getTableCSV('cev-boot-tbl', 'Boot Time History');
+      fileData += getTableCSV('cev-power-tbl', 'Power Events');
+
+      var blob = new Blob([fileData], { type: 'text/csv' });
+      var url = window.URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.setAttribute('hidden', '');
+      a.setAttribute('href', url);
+      a.setAttribute('download', devName.replace(/\\W+/g, '_') + '_ComplianceHistory.csv');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
 
     var retentionRulesCache = [];
 

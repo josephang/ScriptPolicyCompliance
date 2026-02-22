@@ -1187,10 +1187,8 @@ module.exports.scripttask = function (parent) {
                                 var evTimeMs = typeof ev.time === 'number' ? ev.time : (new Date(ev.time).getTime() || 0);
                                 if (evTimeMs < timeLimitMs) return;
 
-                                // Filter for power events. MeshCentral uses msg to denote power state changes or structured event ids.
-                                if (ev.action === 'nodePowerState' || ev.action === 'agentcore' || (ev.msg && ev.msg.indexOf('Power') >= 0) || ev.m === 10 || ev.action === 'nodeconnectivity' || ev.action === 'power') {
-                                    pEvents.push({ time: ev.time, msg: ev.msg, action: ev.action, state: ev.state || ev.s });
-                                }
+                                // Sending all events for debugging
+                                pEvents.push({ time: ev.time, msg: ev.msg, action: ev.action, state: ev.state || ev.s, raw: ev });
                             });
                         }
                         var targets = ['*', 'server-users'];
