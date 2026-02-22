@@ -16,28 +16,14 @@ module.exports.scripttask = function (parent) {
     obj.debug = obj.meshServer.debug;
     obj.VIEWS = __dirname + '/views/';
 
-    // Force immediate DB initialization on plugin load since MeshCentral hooks are unreliable
-    try {
-        console.log("CompliancePowerScript: Attempting to initialize DB On Load...");
-        obj.meshServer.pluginHandler.scripttask_db = require(__dirname + '/db.js').CreateDB(obj.meshServer);
-        obj.db = obj.meshServer.pluginHandler.scripttask_db;
-        console.log("CompliancePowerScript: DB Successfully Initialized!");
-    } catch (err) {
-        console.log("CompliancePowerScript DB INITIALIZATION FATAL ERROR:", err, err.stack);
-    }
-    obj.resetQueueTimer = function () {
-        clearTimeout(obj.intervalTimer);
-        obj.intervalTimer = setInterval(obj.queueRun, 1 * 60 * 1000); // every minute
-    };
-    obj.resetQueueTimer();
-
     obj.exports = [
         'onDeviceRefreshEnd',
         'resizeContent',
         'historyData',
         'variableData',
         'malix_triggerOption',
-        'hook_agentCoreIsStable'
+        'hook_agentCoreIsStable',
+        'server_startup'
     ];
 
     obj.malix_triggerOption = function (selectElem) {
@@ -47,8 +33,23 @@ module.exports.scripttask = function (parent) {
 
     }
 
+    obj.resetQueueTimer = function () {
+        clearTimeout(obj.intervalTimer);
+        obj.intervalTimer = setInterval(obj.queueRun, 1 * 60 * 1000); // every minute
+    };
+
     obj.server_startup = function () {
-        // Obsolete, left empty for legacy compatibility
+        try {
+            console.log("CompliancePowerScript: Attempting to initialize DB...");
+            obj.meshServer.pluginHandler.scripttask_db = require(__dirname + '/db.js').CreateDB(obj.meshServer);
+            obj.db = obj.meshServer.pluginHandler.scripttask_db;
+            obj.db_error = null;
+            obj.resetQueueTimer();
+            console.log("CompliancePowerScript: DB Successfully Initialized!");
+        } catch (err) {
+            obj.db_error = String(err) + " : " + String(err.stack);
+            console.log("CompliancePowerScript DB INITIALIZATION FATAL ERROR:", err, err.stack);
+        }
     };
 
     obj.hook_agentCoreIsStable = function (agent) {
@@ -288,7 +289,7 @@ module.exports.scripttask = function (parent) {
             }
             // default user view (tree)
             try {
-                if (!obj.db) { res.status(500).send("CRASH: obj.db is completely undefined! Did db.js fail to load?"); return; }
+                if (!obj.db) { res.status(500).send("<pre>CRASH: obj.db is completely undefined!\n\nDB_INIT_ERROR:\n" + String(obj.db_error) + "\n\nDid db.js fail to load?</pre>"); return; }
                 if (typeof obj.db.getScriptTree !== 'function') { res.status(500).send("CRASH: obj.db.getScriptTree is not a function! db.js missing exports?"); return; }
 
                 vars.scriptTree = 'null';
