@@ -796,28 +796,6 @@
               style="float:right; font-size:11px; padding:2px 6px; cursor:pointer; background:#17a2b8; color:#fff; border:none; border-radius:3px; margin-left:6px;">
               &#8681; CSV</button>
           </div>
-          <!-- Legend -->
-          <div style="font-size:11px; margin:4px 0 6px 0; color:#555;">
-            <span
-              style="display:inline-block; width:14px; height:12px; background:#28a745; vertical-align:middle;"></span>
-            On &nbsp;
-            <span
-              style="display:inline-block; width:14px; height:12px; background:#9370db; vertical-align:middle;"></span>
-            Sleep/Hibernate &nbsp;
-            <span
-              style="display:inline-block; width:14px; height:12px; background:#e6a800; vertical-align:middle;"></span>
-            Soft-Off &nbsp;
-            <span
-              style="display:inline-block; width:14px; height:12px; background:#ddd; border:1px solid #bbb; vertical-align:middle;"></span>
-            Off &nbsp;
-            <span
-              style="display:inline-block; width:14px; height:12px; background:#fff; border:1px solid #bbb; vertical-align:middle;"></span>
-            Future
-          </div>
-          <!-- 7-day bar -->
-          <div id="cev-power-timeline"
-            style="width:100%; height:22px; background:#e0e0e0; display:flex; margin-bottom:10px; border:1px solid #ccc; border-radius:3px; overflow:hidden;"
-            title="7-Day Power State"></div>
           <!-- Paginated state-transition table -->
           <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:12px;">
             <button id="cev-pwr-prev" onclick="pwrPageNav(-1)" style="padding:2px 7px; font-size:12px;">&laquo;
@@ -1880,60 +1858,6 @@
 
       // Render paginated table
       renderPwrPage();
-
-      // Rebuild 7-day bar chart
-      var tl = document.getElementById('cev-power-timeline');
-      if (!tl) return;
-
-      var isCurrentlyOnline = false;
-      if (parent && parent.nodes) {
-        var n = parent.nodes.find(function (x) { return x._id === nodeId; });
-        if (n) isCurrentlyOnline = (n.conn === 1 || n.icon === 1 || !!n.pconn);
-      }
-
-      var daysHtml = '<table style="width:100%; border-collapse:collapse; border:1px solid #ccc; margin-bottom:6px; font-size:12px;">';
-      daysHtml += '<thead><tr style="background:#f0f0f0;"><th style="padding:4px 6px; width:90px; border-right:1px solid #ccc; text-align:left;">Day</th><th style="padding:4px;">Power State</th></tr></thead><tbody>';
-
-      for (var d = 0; d < 7; d++) {
-        var dStart = new Date();
-        dStart.setHours(0, 0, 0, 0);
-        dStart.setDate(dStart.getDate() - d);
-        var dStartMs = dStart.getTime();
-        var dEndMs = dStartMs + 86400000;
-        var dayDateStr = dStart.toLocaleDateString();
-
-        var dayEvts = _pwrEvents.filter(function (e) { var tMs = e.time * 1000; return tMs >= dStartMs && tMs < dEndMs; });
-        var priorEvts = _pwrEvents.filter(function (e) { return e.time * 1000 < dStartMs; });
-
-        // Default to 'Unknown' (state 5) if no prior events exist and no subsequent events guarantee it was on
-        var curState = priorEvts.length > 0 ? priorEvts[priorEvts.length - 1].state : 5;
-
-        var barHtml = '';
-        var lastMs = dStartMs;
-
-        for (var i = 0; i < dayEvts.length; i++) {
-          var ev = dayEvts[i];
-          var etMs = ev.time * 1000;
-          var pct = ((etMs - lastMs) / 86400000) * 100;
-          if (pct > 0.05) barHtml += '<div style="display:inline-block; height:20px; background:' + pwrStateColor(curState) + '; width:' + pct + '%;" title="' + (ev.stateLabel || '') + '"></div>';
-          curState = ev.state;
-          lastMs = etMs;
-        }
-        var endBound = Math.min(Date.now(), dEndMs);
-        var tailPct = ((endBound - lastMs) / 86400000) * 100;
-        if (tailPct > 0.05) {
-          // For the tail end of the modern timeline, default to current known online state if we somehow dropped events
-          var tailState = curState !== 5 ? curState : (isCurrentlyOnline ? 1 : 0);
-          barHtml += '<div style="display:inline-block; height:20px; background:' + pwrStateColor(tailState) + '; width:' + tailPct + '%;"></div>';
-        }
-        if (Date.now() < dEndMs) {
-          var futurePct = ((dEndMs - Date.now()) / 86400000) * 100;
-          if (futurePct > 0.05) barHtml += '<div style="display:inline-block; height:20px; background:#f5f5ff; border-left:1px dashed #aaa; width:' + futurePct + '%;"></div>';
-        }
-        daysHtml += '<tr><td style="border:1px solid #ddd; padding:3px 5px; white-space:nowrap;">' + dayDateStr + '</td><td style="border:1px solid #ddd; padding:1px; background:#fff;"><div style="width:100%; height:20px; display:flex; overflow:hidden;">' + barHtml + '</div></td></tr>';
-      }
-      daysHtml += '</tbody></table>';
-      tl.outerHTML = '<div id="cev-power-timeline" style="margin-bottom:6px;">' + daysHtml + '</div>';
     };
 
     function downloadSpecificTableCSV(tableId, title) {
