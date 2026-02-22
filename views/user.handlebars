@@ -658,10 +658,10 @@
           <table id="cev-overview-tbl">
             <thead>
               <tr>
-                <th onclick="sortComplianceOverview('name')" style="cursor:pointer;">Device &#9650;</th>
-                <th>Last IP <span style="font-size:11px;font-weight:normal;">(timestamp)</span></th>
+                <th onclick="sortComplianceOverview('name')" style="cursor:pointer;">Device &#9660;</th>
+                <th onclick="sortComplianceOverview('user')" style="cursor:pointer;">Last User &#9660;</th>
+                <th>Last IP <span style="font-size:11px;font-weight:normal;">(seen)</span></th>
                 <th>Last Boot Time</th>
-                <th onclick="sortComplianceOverview('user')" style="cursor:pointer;">Last User &#9650;</th>
                 <th></th>
               </tr>
             </thead>
@@ -764,6 +764,16 @@
               </tr>
             </thead>
             <tbody id="cev-boot-tbl"></tbody>
+          </table>
+          <div class="cev-section-title" style="margin-top:14px;">&#9889; Power History (180 Days)</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Event / State</th>
+              </tr>
+            </thead>
+            <tbody id="cev-power-tbl"></tbody>
           </table>
         </div>
       </div>
@@ -1117,6 +1127,7 @@
     function goScripts() {
       document.getElementById('policy_endpoints').style.display = 'none';
       document.getElementById('smtp_endpoints').style.display = 'none';
+      document.getElementById('compliance_endpoints').style.display = 'none';
       document.getElementById('scripts_endpoints').style.display = 'block';
       setActiveTab('tabScripts');
       resizeIframe();
@@ -1412,6 +1423,27 @@
     var complianceSortKey = 'name';
     var complianceSortAsc = true;
 
+    // Parse WMI-style boot date (e.g. "20250221120000.000000+000" or ISO or Unix secs)
+    function fmtBootTime(val) {
+      if (!val) return '-';
+      // WMI format: YYYYMMDDHHmmss.ffffff+offset
+      var wmi = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(String(val));
+      if (wmi) {
+        var d = new Date(Date.UTC(
+          parseInt(wmi[1]), parseInt(wmi[2]) - 1, parseInt(wmi[3]),
+          parseInt(wmi[4]), parseInt(wmi[5]), parseInt(wmi[6])
+        ));
+        return d.toLocaleString();
+      }
+      // Unix timestamp (number or numeric string > 1e9)
+      var n = Number(val);
+      if (!isNaN(n) && n > 1e9) return new Date(n < 1e12 ? n * 1000 : n).toLocaleString();
+      // ISO / already human-readable
+      var d2 = new Date(val);
+      if (!isNaN(d2)) return d2.toLocaleString();
+      return String(val);
+    }
+
     function renderComplianceOverview(rows) {
       var tbody = document.getElementById('cev-overview-body');
       if (!tbody) return;
@@ -1422,11 +1454,16 @@
       var html = '';
       rows.forEach(function (row) {
         var name = getNodeName(row.nodeId);
+        var ipLink = row.lastIp
+          ? '<a href="https://iplocation.com/?ip=' + encodeURIComponent(row.lastIp) + '" target="_blank" rel="noopener" style="color:#0066cc;">' + row.lastIp + '</a>'
+          : '-';
+        var ipCell = ipLink + '<br><span style="color:#999;font-size:11px;">' + fmtTs(row.lastIpTimestamp) + '</span>';
+
         html += '<tr data-name="' + name.toLowerCase() + '" data-user="' + (row.lastUser || '').toLowerCase() + '">';
         html += '<td>' + name + '</td>';
-        html += '<td>' + (row.lastIp || '-') + '<br><span style="color:#999;font-size:11px;">' + fmtTs(row.lastIpTimestamp) + '</span></td>';
-        html += '<td>' + (row.lastBoot ? row.lastBoot : '-') + '</td>';
-        html += '<td>' + (row.lastUser || '-') + '</td>';
+        html += '<td>' + (row.lastUser || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
+        html += '<td>' + ipCell + '</td>';
+        html += '<td>' + fmtBootTime(row.lastBoot) + '</td>';
         html += '<td><span class="flink" onclick="loadDeviceDetail(\'' + row.nodeId + '\', \'' + name.replace(/'/g, "\\'") + '\')">Details &rsaquo;</span></td>';
         html += '</tr>';
       });
@@ -1493,9 +1530,36 @@
       var ut = document.getElementById('cev-user-tbl');
       if (ut) ut.innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
       document.getElementById('cev-boot-tbl').innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
+      var pt = document.getElementById('cev-power-tbl');
+      if (pt) pt.innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getDeviceEvents', nodeId: nodeId });
+      parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getPowerHistory', nodeId: nodeId, days: 180 });
       resizeIframe();
     }
+
+    parent.pluginHandler.scripttask.powerHistory = function (message) {
+      if (!message.event || !message.event.nodeId) return;
+      var nodeId = message.event.nodeId;
+      var events = message.event.events || [];
+
+      // Update detail drill-down
+      var pt = document.getElementById('cev-power-tbl');
+      if (pt && document.getElementById('cev-detail').style.display === 'block') {
+        if (!events.length) {
+          pt.innerHTML = '<tr><td colspan="2" style="color:#999;">No records up to 180 days.</td></tr>';
+        } else {
+          var html = '';
+          events.forEach(function (ev, idx) {
+            // limit to 50 to avoid massive tables
+            if (idx > 50) return;
+            var actionDesc = ev.msg || ev.action || "State " + ev.state;
+            html += '<tr><td>' + fmtTs((ev.time && ev.time.getTime) ? ev.time.getTime() / 1000 : ev.time ? (typeof ev.time === 'string' ? Date.parse(ev.time) / 1000 : ev.time) : 0) + '</td><td>' + actionDesc + '</td></tr>';
+          });
+          if (events.length > 50) html += '<tr><td colspan="2" style="color:#999;font-style:italic;">...and ' + (events.length - 50) + ' more events.</td></tr>';
+          pt.innerHTML = html;
+        }
+      }
+    };
 
     var retentionRulesCache = [];
 

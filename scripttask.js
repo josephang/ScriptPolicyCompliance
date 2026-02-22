@@ -27,6 +27,8 @@ module.exports.scripttask = function (parent) {
         'deviceEvents',
         'complianceOverview',
         'retentionRules',
+        'powerHistory',
+        'hook_processAgentData',
         'malix_triggerOption',
         'hook_agentCoreIsStable',
         'server_startup'
@@ -64,6 +66,27 @@ module.exports.scripttask = function (parent) {
             obj.recordComplianceEvents(agent).catch(e => {
                 console.log('ScriptPolicyCompliance: recordComplianceEvents error', e);
             });
+        }
+    };
+
+    // Capture lastUser from real-time agent data messages
+    obj.hook_processAgentData = function (agent, command, tag) {
+        if (!obj.db || !agent || !agent.dbNodeKey) return;
+        var nodeId = agent.dbNodeKey;
+        var meshId = agent.dbMeshKey || null;
+        var user = null;
+        if (command) {
+            if (command.loginuser) user = command.loginuser;
+            else if (command.loginInfo && command.loginInfo.user) user = command.loginInfo.user;
+            else if (command.users && command.users.length) user = command.users[0];
+            else if (command.action === 'sessions' && command.user) user = command.user;
+        }
+        if (user && typeof user === 'string' && user.trim()) {
+            obj.db.getLastDeviceEvent(nodeId, 'lastUser').then(last => {
+                if (!last.length || last[0].data.user !== user) {
+                    obj.db.addDeviceEvent(nodeId, meshId, 'lastUser', { user: user });
+                }
+            }).catch(() => { });
         }
     };
 
@@ -487,6 +510,10 @@ module.exports.scripttask = function (parent) {
 
     obj.retentionRules = function (message) {
         if (typeof pluginHandler.scripttask.retentionRules == 'function') pluginHandler.scripttask.retentionRules(message);
+    };
+
+    obj.powerHistory = function (message) {
+        if (typeof pluginHandler.scripttask.powerHistory == 'function') pluginHandler.scripttask.powerHistory(message);
     };
 
     obj.determineNextJobTime = function (s) {
@@ -1128,6 +1155,32 @@ module.exports.scripttask = function (parent) {
                 obj.db.deleteRetentionRule(command.id).then(() => {
                     obj.serveraction({ pluginaction: 'getRetentionRules' }, myparent, grandparent);
                 }).catch(e => { console.log('ScriptPolicyCompliance ERROR deleteRetentionRule:', e); });
+                break;
+            case 'getPowerHistory':
+                if (obj.meshServer && obj.meshServer.db && typeof obj.meshServer.db.GetEvents == 'function') {
+                    // Query power events for the node.
+                    // Action 10 = power events (in MeshCentral core).
+                    var nodeid = command.nodeId;
+                    var timeLimit = Math.floor(Date.now() / 1000) - (command.days || 180) * 86400; // 180 days by default
+
+                    obj.meshServer.db.GetEvents([nodeid], null, timeLimit, function (err, docs) {
+                        var pEvents = [];
+                        if (!err && docs) {
+                            docs.forEach(function (ev) {
+                                // Filter for power events. MeshCentral uses msg to denote power state changes or structured event ids.
+                                // It can also just be filtered to all events related to the node, then we pluck power-specific ones.
+                                if (ev.action === 'nodePowerState' || ev.action === 'agentcore' || ev.msg && ev.msg.indexOf('Power') >= 0 || ev.m === 10 || ev.action === 'nodeconnectivity' || ev.action === 'power') {
+                                    pEvents.push({ time: ev.time, msg: ev.msg, action: ev.action, state: ev.state || ev.s });
+                                }
+                            });
+                        }
+                        var targets = ['*', 'server-users'];
+                        obj.meshServer.DispatchEvent(targets, obj, { nolog: true, action: 'plugin', plugin: 'scripttask', pluginaction: 'powerHistory', events: pEvents, nodeId: nodeid });
+                    });
+                } else {
+                    var targets = ['*', 'server-users'];
+                    obj.meshServer.DispatchEvent(targets, obj, { nolog: true, action: 'plugin', plugin: 'scripttask', pluginaction: 'powerHistory', events: [], nodeId: command.nodeId, error: "Database not available" });
+                }
                 break;
             default:
                 console.log('PLUGIN: ScriptTask: unknown action');
