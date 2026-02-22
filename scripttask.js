@@ -21,6 +21,9 @@ module.exports.scripttask = function (parent) {
         'resizeContent',
         'historyData',
         'variableData',
+        'policyData',
+        'smtpData',
+        'complianceStateData',
         'malix_triggerOption',
         'hook_agentCoreIsStable',
         'server_startup'
