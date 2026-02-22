@@ -119,6 +119,19 @@ module.exports.scripttask = function (parent) {
             if (!nodes || !nodes.length) return;
             var node = nodes[0];
 
+            // --- Last User: fallback check node.users ---
+            if (node.users && node.users.length > 0) {
+                var cuser = node.users[0];
+                if (typeof cuser === 'string' && cuser.trim()) {
+                    try {
+                        var lastU = await obj.db.getLastDeviceEvent(nodeId, 'lastUser');
+                        if (!lastU.length || lastU[0].data.user !== cuser) {
+                            await obj.db.addDeviceEvent(nodeId, meshId, 'lastUser', { user: cuser });
+                        }
+                    } catch (e) { }
+                }
+            }
+
             // --- Boot Time: check all known MeshCentral field paths ---
             var bootTime = null;
             if (node.osinforaw && node.osinforaw.LastBootUpTime) {
@@ -1164,15 +1177,18 @@ module.exports.scripttask = function (parent) {
                     // Query power events for the node.
                     // Action 10 = power events (in MeshCentral core).
                     var nodeid = command.nodeId;
-                    var timeLimit = Math.floor(Date.now() / 1000) - (command.days || 180) * 86400; // 180 days by default
+                    var limit = 5000;
+                    var timeLimitMs = Date.now() - (command.days || 180) * 86400 * 1000;
 
-                    obj.meshServer.db.GetEvents([nodeid], null, timeLimit, function (err, docs) {
+                    obj.meshServer.db.GetEvents([nodeid], obj.meshServer.domainId || null, limit, function (err, docs) {
                         var pEvents = [];
                         if (!err && docs) {
                             docs.forEach(function (ev) {
+                                var evTimeMs = typeof ev.time === 'number' ? ev.time : (new Date(ev.time).getTime() || 0);
+                                if (evTimeMs < timeLimitMs) return;
+
                                 // Filter for power events. MeshCentral uses msg to denote power state changes or structured event ids.
-                                // It can also just be filtered to all events related to the node, then we pluck power-specific ones.
-                                if (ev.action === 'nodePowerState' || ev.action === 'agentcore' || ev.msg && ev.msg.indexOf('Power') >= 0 || ev.m === 10 || ev.action === 'nodeconnectivity' || ev.action === 'power') {
+                                if (ev.action === 'nodePowerState' || ev.action === 'agentcore' || (ev.msg && ev.msg.indexOf('Power') >= 0) || ev.m === 10 || ev.action === 'nodeconnectivity' || ev.action === 'power') {
                                     pEvents.push({ time: ev.time, msg: ev.msg, action: ev.action, state: ev.state || ev.s });
                                 }
                             });

@@ -300,8 +300,10 @@
     function goScripts() {
       document.getElementById('policy_endpoints').style.display = 'none';
       document.getElementById('smtp_endpoints').style.display = 'none';
+      document.getElementById('compliance_endpoints').style.display = 'none';
       document.getElementById('scripts_endpoints').style.display = 'block';
       setActiveTab('tabScripts');
+      parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getScripts' });
       resizeIframe();
     }
 
@@ -566,6 +568,8 @@
       document.getElementById('smtp_endpoints').style.display = 'none';
       document.getElementById('compliance_endpoints').style.display = 'block';
       setActiveTab('tabCompliance');
+      var tbody = document.getElementById('cev-overview-body');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="color:#999;font-style:italic;">Loading...</td></tr>';
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getComplianceOverview' });
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getRetentionRules' });
       resizeIframe();
@@ -586,6 +590,14 @@
       return nodeId.slice(-8);
     }
 
+    function getNodeDesc(nodeId) {
+      if (parent && parent.nodes) {
+        var n = parent.nodes.find(function (x) { return x._id === nodeId; });
+        if (n && n.desc) return n.desc;
+      }
+      return '';
+    }
+
     function fmtTs(ts) {
       if (!ts) return '-';
       return new Date(ts * 1000).toLocaleString();
@@ -594,6 +606,27 @@
     var complianceOverviewData = [];
     var complianceSortKey = 'name';
     var complianceSortAsc = true;
+
+    // Parse WMI-style boot date (e.g. "20250221120000.000000+000" or ISO or Unix secs)
+    function fmtBootTime(val) {
+      if (!val) return '-';
+      // WMI format: YYYYMMDDHHmmss.ffffff+offset
+      var wmi = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(String(val));
+      if (wmi) {
+        var d = new Date(Date.UTC(
+          parseInt(wmi[1]), parseInt(wmi[2]) - 1, parseInt(wmi[3]),
+          parseInt(wmi[4]), parseInt(wmi[5]), parseInt(wmi[6])
+        ));
+        return d.toLocaleString();
+      }
+      // Unix timestamp (number or numeric string > 1e9)
+      var n = Number(val);
+      if (!isNaN(n) && n > 1e9) return new Date(n < 1e12 ? n * 1000 : n).toLocaleString();
+      // ISO / already human-readable
+      var d2 = new Date(val);
+      if (!isNaN(d2)) return d2.toLocaleString();
+      return String(val);
+    }
 
     function renderComplianceOverview(rows) {
       var tbody = document.getElementById('cev-overview-body');
@@ -605,11 +638,18 @@
       var html = '';
       rows.forEach(function (row) {
         var name = getNodeName(row.nodeId);
-        html += '<tr data-name="' + name.toLowerCase() + '" data-user="' + (row.lastUser || '').toLowerCase() + '">';
+        var ipLink = row.lastIp
+          ? '<a href="https://iplocation.com/?ip=' + encodeURIComponent(row.lastIp) + '" target="_blank" rel="noopener" style="color:#0066cc;">' + row.lastIp + '</a>'
+          : '-';
+        var ipCell = ipLink + '<br><span style="color:#999;font-size:11px;">' + fmtTs(row.lastIpTimestamp) + '</span>';
+
+        var desc = getNodeDesc(row.nodeId);
+        html += '<tr data-name="' + name.toLowerCase() + '" data-user="' + (row.lastUser || '').toLowerCase() + '" data-desc="' + desc.toLowerCase() + '">';
         html += '<td>' + name + '</td>';
-        html += '<td>' + (row.lastIp || '-') + '<br><span style="color:#999;font-size:11px;">' + fmtTs(row.lastIpTimestamp) + '</span></td>';
-        html += '<td>' + (row.lastBoot ? row.lastBoot : '-') + '</td>';
-        html += '<td>' + (row.lastUser || '-') + '</td>';
+        html += '<td>' + (desc || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
+        html += '<td>' + (row.lastUser || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
+        html += '<td>' + ipCell + '</td>';
+        html += '<td>' + fmtBootTime(row.lastBoot) + '</td>';
         html += '<td><span class="flink" onclick="loadDeviceDetail(\'' + row.nodeId + '\', \'' + name.replace(/'/g, "\\'") + '\')">Details &rsaquo;</span></td>';
         html += '</tr>';
       });
@@ -631,7 +671,8 @@
       rows.forEach(function (r) {
         var name = (r.getAttribute('data-name') || '');
         var user = (r.getAttribute('data-user') || '');
-        r.style.display = (!q || name.includes(q) || user.includes(q)) ? '' : 'none';
+        var desc = (r.getAttribute('data-desc') || '');
+        r.style.display = (!q || name.includes(q) || user.includes(q) || desc.includes(q)) ? '' : 'none';
       });
     }
 
@@ -639,8 +680,12 @@
       if (complianceSortKey === key) complianceSortAsc = !complianceSortAsc;
       else { complianceSortKey = key; complianceSortAsc = true; }
       complianceOverviewData.sort(function (a, b) {
-        var av = (key === 'user' ? (a.lastUser || '') : getNodeName(a.nodeId)).toLowerCase();
-        var bv = (key === 'user' ? (b.lastUser || '') : getNodeName(b.nodeId)).toLowerCase();
+        var av, bv;
+        if (key === 'user') { av = (a.lastUser || ''); bv = (b.lastUser || ''); }
+        else if (key === 'desc') { av = getNodeDesc(a.nodeId); bv = getNodeDesc(b.nodeId); }
+        else { av = getNodeName(a.nodeId); bv = getNodeName(b.nodeId); }
+        av = av.toLowerCase(); bv = bv.toLowerCase();
+
         var cmp = av < bv ? -1 : av > bv ? 1 : 0;
         return complianceSortAsc ? cmp : -cmp;
       });
@@ -656,7 +701,9 @@
       var ipHtml = '', userHtml = '', bootHtml = '';
       events.forEach(function (ev) {
         if (ev.eventType === 'ipSeen') {
-          ipHtml += '<tr><td>' + fmtTs(ev.timestamp) + '</td><td>' + (ev.data.ip || '-') + '</td></tr>';
+          var ipVal = ev.data.ip;
+          var ipLnk = ipVal ? '<a href="https://iplocation.com/?ip=' + encodeURIComponent(ipVal) + '" target="_blank" rel="noopener" style="color:#0066cc;">' + ipVal + '</a>' : '-';
+          ipHtml += '<tr><td>' + fmtTs(ev.timestamp) + '</td><td>' + ipLnk + '</td></tr>';
         } else if (ev.eventType === 'lastUser') {
           userHtml += '<tr><td>' + fmtTs(ev.timestamp) + '</td><td>' + (ev.data.user || '-') + '</td></tr>';
         } else if (ev.eventType === 'bootTime') {
@@ -676,16 +723,52 @@
       var ut = document.getElementById('cev-user-tbl');
       if (ut) ut.innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
       document.getElementById('cev-boot-tbl').innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
+      var pt = document.getElementById('cev-power-tbl');
+      if (pt) pt.innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
+
+      var pDays = 180;
+      if (typeof retentionRulesCache !== 'undefined') {
+        var pGlobal = retentionRulesCache.find(function (r) { return r.eventType === 'powerHistory' && r.targetType === 'global'; });
+        if (pGlobal && pGlobal.days) pDays = pGlobal.days;
+      }
+      var pTitle = document.getElementById('cev-power-title');
+      if (pTitle) pTitle.innerHTML = '&#9889; Power History (' + pDays + ' Days)';
+
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getDeviceEvents', nodeId: nodeId });
+      parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getPowerHistory', nodeId: nodeId, days: pDays });
       resizeIframe();
     }
+
+    parent.pluginHandler.scripttask.powerHistory = function (message) {
+      if (!message.event || !message.event.nodeId) return;
+      var nodeId = message.event.nodeId;
+      var events = message.event.events || [];
+
+      // Update detail drill-down
+      var pt = document.getElementById('cev-power-tbl');
+      if (pt && document.getElementById('cev-detail').style.display === 'block') {
+        if (!events.length) {
+          pt.innerHTML = '<tr><td colspan="2" style="color:#999;">No records up to 180 days.</td></tr>';
+        } else {
+          var html = '';
+          events.forEach(function (ev, idx) {
+            // limit to 50 to avoid massive tables
+            if (idx > 50) return;
+            var actionDesc = ev.msg || ev.action || "State " + ev.state;
+            html += '<tr><td>' + fmtTs((ev.time && ev.time.getTime) ? ev.time.getTime() / 1000 : ev.time ? (typeof ev.time === 'string' ? Date.parse(ev.time) / 1000 : ev.time) : 0) + '</td><td>' + actionDesc + '</td></tr>';
+          });
+          if (events.length > 50) html += '<tr><td colspan="2" style="color:#999;font-style:italic;">...and ' + (events.length - 50) + ' more events.</td></tr>';
+          pt.innerHTML = html;
+        }
+      }
+    };
 
     var retentionRulesCache = [];
 
     parent.pluginHandler.scripttask.retentionRules = function (message) {
       retentionRulesCache = message.event.rules || [];
       // Populate default inputs
-      var typeToInputId = { ipSeen: 'ret-ip-days', lastUser: 'ret-user-days', bootTime: 'ret-boot-days' };
+      var typeToInputId = { ipSeen: 'ret-ip-days', lastUser: 'ret-user-days', bootTime: 'ret-boot-days', powerHistory: 'ret-power-days' };
       retentionRulesCache.forEach(function (r) {
         if (r.targetType === 'global' && typeToInputId[r.eventType]) {
           var inp = document.getElementById(typeToInputId[r.eventType]);
@@ -711,7 +794,7 @@
     };
 
     function saveDefaultRetention(eventType) {
-      var idMap = { ipSeen: 'ret-ip-days', agentConnected: 'ret-conn-days', bootTime: 'ret-boot-days' };
+      var idMap = { ipSeen: 'ret-ip-days', lastUser: 'ret-user-days', bootTime: 'ret-boot-days', powerHistory: 'ret-power-days' };
       var days = parseInt(document.getElementById(idMap[eventType]).value, 10);
       if (isNaN(days) || days < 1) { alert('Please enter a valid number of days.'); return; }
       var existing = retentionRulesCache.find(function (r) { return r.targetType === 'global' && r.eventType === eventType; });
@@ -726,7 +809,7 @@
     function addRetentionOverride() {
       var tbody = document.getElementById('cev-retention-overrides');
       var row = document.createElement('tr');
-      row.innerHTML = '<td><select class="ort-type"><option value="ipSeen">IP Seen</option><option value="agentConnected">Connection</option><option value="bootTime">Boot Time</option></select></td>' +
+      row.innerHTML = '<td><select class="ort-type"><option value="ipSeen">IP Seen</option><option value="lastUser">Last User</option><option value="bootTime">Boot Time</option><option value="powerHistory">Power History</option></select></td>' +
         '<td><select class="ort-scope"><option value="node">Node</option><option value="mesh">Mesh</option><option value="tag">Tag</option></select></td>' +
         '<td><input type="text" class="ort-target" style="width:120px;" placeholder="ID or name"></td>' +
         '<td><input type="number" class="ort-days" min="1" value="90" style="width:60px;"></td>' +

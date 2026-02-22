@@ -711,6 +711,12 @@
                   <td><button onclick="saveDefaultRetention('bootTime')"
                       style="background:#007bff;color:#fff;">Save</button></td>
                 </tr>
+                <tr>
+                  <td>Power History</td>
+                  <td><input type="number" id="ret-power-days" min="1" value="180" style="width:70px;"></td>
+                  <td><button onclick="saveDefaultRetention('powerHistory')"
+                      style="background:#007bff;color:#fff;">Save</button></td>
+                </tr>
               </tbody>
             </table>
 
@@ -771,7 +777,7 @@
             </thead>
             <tbody id="cev-boot-tbl"></tbody>
           </table>
-          <div class="cev-section-title" style="margin-top:14px;">&#9889; Power History (180 Days)</div>
+          <div class="cev-section-title" style="margin-top:14px;" id="cev-power-title">&#9889; Power History</div>
           <table>
             <thead>
               <tr>
@@ -1558,8 +1564,17 @@
       document.getElementById('cev-boot-tbl').innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
       var pt = document.getElementById('cev-power-tbl');
       if (pt) pt.innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
+
+      var pDays = 180;
+      if (typeof retentionRulesCache !== 'undefined') {
+        var pGlobal = retentionRulesCache.find(function (r) { return r.eventType === 'powerHistory' && r.targetType === 'global'; });
+        if (pGlobal && pGlobal.days) pDays = pGlobal.days;
+      }
+      var pTitle = document.getElementById('cev-power-title');
+      if (pTitle) pTitle.innerHTML = '&#9889; Power History (' + pDays + ' Days)';
+
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getDeviceEvents', nodeId: nodeId });
-      parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getPowerHistory', nodeId: nodeId, days: 180 });
+      parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getPowerHistory', nodeId: nodeId, days: pDays });
       resizeIframe();
     }
 
@@ -1592,7 +1607,7 @@
     parent.pluginHandler.scripttask.retentionRules = function (message) {
       retentionRulesCache = message.event.rules || [];
       // Populate default inputs
-      var typeToInputId = { ipSeen: 'ret-ip-days', lastUser: 'ret-user-days', bootTime: 'ret-boot-days' };
+      var typeToInputId = { ipSeen: 'ret-ip-days', lastUser: 'ret-user-days', bootTime: 'ret-boot-days', powerHistory: 'ret-power-days' };
       retentionRulesCache.forEach(function (r) {
         if (r.targetType === 'global' && typeToInputId[r.eventType]) {
           var inp = document.getElementById(typeToInputId[r.eventType]);
@@ -1618,7 +1633,7 @@
     };
 
     function saveDefaultRetention(eventType) {
-      var idMap = { ipSeen: 'ret-ip-days', agentConnected: 'ret-conn-days', bootTime: 'ret-boot-days' };
+      var idMap = { ipSeen: 'ret-ip-days', lastUser: 'ret-user-days', bootTime: 'ret-boot-days', powerHistory: 'ret-power-days' };
       var days = parseInt(document.getElementById(idMap[eventType]).value, 10);
       if (isNaN(days) || days < 1) { alert('Please enter a valid number of days.'); return; }
       var existing = retentionRulesCache.find(function (r) { return r.targetType === 'global' && r.eventType === eventType; });
@@ -1633,7 +1648,7 @@
     function addRetentionOverride() {
       var tbody = document.getElementById('cev-retention-overrides');
       var row = document.createElement('tr');
-      row.innerHTML = '<td><select class="ort-type"><option value="ipSeen">IP Seen</option><option value="agentConnected">Connection</option><option value="bootTime">Boot Time</option></select></td>' +
+      row.innerHTML = '<td><select class="ort-type"><option value="ipSeen">IP Seen</option><option value="lastUser">Last User</option><option value="bootTime">Boot Time</option><option value="powerHistory">Power History</option></select></td>' +
         '<td><select class="ort-scope"><option value="node">Node</option><option value="mesh">Mesh</option><option value="tag">Tag</option></select></td>' +
         '<td><input type="text" class="ort-target" style="width:120px;" placeholder="ID or name"></td>' +
         '<td><input type="number" class="ort-days" min="1" value="90" style="width:60px;"></td>' +
