@@ -1343,6 +1343,7 @@ module.exports.scripttask = function (parent) {
                     // Aggregate: for each nodeId, latest of each event type (data sorted desc, first = latest)
                     var nodeMap = {};
                     allEvents.forEach(ev => {
+                        if (ev.nodeId === '*') return;
                         if (!nodeMap[ev.nodeId]) nodeMap[ev.nodeId] = {};
                         if (!nodeMap[ev.nodeId][ev.eventType]) nodeMap[ev.nodeId][ev.eventType] = ev;
                     });
@@ -1384,6 +1385,7 @@ module.exports.scripttask = function (parent) {
                     var targets = ['*', 'server-users'];
 
                     var powerStateLabels = {
+                        '-1': 'Disconnected / Offline',
                         0: 'Powered Off',
                         1: 'Powered On',
                         2: 'Sleeping',
@@ -1407,6 +1409,9 @@ module.exports.scripttask = function (parent) {
                             if (rawEv && rawEv.doc) {
                                 ev = (typeof rawEv.doc === 'string') ? JSON.parse(rawEv.doc) : rawEv.doc;
                             }
+                            var nId = rawEv.nodeid || rawEv.node || ev.nodeid || ev.node;
+                            if (nId === '*') return;
+
                             if (!isNativePwr) {
                                 var ok = (ev.action === 'pwr' || ev.action === 'power' ||
                                     ev.state !== undefined || ev.s !== undefined ||
@@ -1425,6 +1430,36 @@ module.exports.scripttask = function (parent) {
                             });
                         });
                         pEvents.sort(function (a, b) { return a.time - b.time; });
+
+                        // Clean up noisy events: coalesce similar states, heavily filter 'Disconnected' (-1)
+                        var CleanEvents = [];
+                        for (var i = 0; i < pEvents.length; i++) {
+                            var curr = pEvents[i];
+                            if (CleanEvents.length > 0 && CleanEvents[CleanEvents.length - 1].state === curr.state) {
+                                continue;
+                            }
+                            // Drop brief 'Disconnected' states (< 5 mins) closely flanked by exact same known state (e.g. On -> Disconnect(3m) -> On)
+                            if (curr.state === -1 && i > 0 && i < pEvents.length - 1) {
+                                var prev = CleanEvents[CleanEvents.length - 1];
+                                var next = pEvents[i + 1];
+                                if (prev.state === next.state && (next.time - curr.time) <= 300) {
+                                    continue;
+                                }
+                            }
+                            CleanEvents.push(curr);
+                        }
+                        pEvents = CleanEvents;
+
+                        // Coalesce one more time in case dropping flip-flops bridged two identical states
+                        var FinalEvents = [];
+                        for (var i = 0; i < pEvents.length; i++) {
+                            if (FinalEvents.length > 0 && FinalEvents[FinalEvents.length - 1].state === pEvents[i].state) {
+                                continue;
+                            }
+                            FinalEvents.push(pEvents[i]);
+                        }
+                        pEvents = FinalEvents;
+
                         // Pre-calculate duration for each segment (seconds until next event)
                         for (var i = 0; i < pEvents.length; i++) {
                             var nextTime = (i + 1 < pEvents.length) ? pEvents[i + 1].time : Math.floor(Date.now() / 1000);
