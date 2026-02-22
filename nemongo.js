@@ -22,6 +22,8 @@ class NEMongo {
     find(args, proj) {
         this._find = args;
         this._proj = proj;
+        this._limit = null;
+        this._sort = null;
         return this;
     }
 

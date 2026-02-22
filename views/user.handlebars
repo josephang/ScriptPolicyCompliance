@@ -1437,6 +1437,14 @@
       return '';
     }
 
+    function getNodeLastUser(nodeId) {
+      if (parent && parent.nodes) {
+        var n = parent.nodes.find(function (x) { return x._id === nodeId; });
+        if (n && n.users && n.users.length > 0) return n.users[0];
+      }
+      return '';
+    }
+
     function fmtTs(ts) {
       if (!ts) return '-';
       return new Date(ts * 1000).toLocaleString();
@@ -1483,10 +1491,11 @@
         var ipCell = ipLink + '<br><span style="color:#999;font-size:11px;">' + fmtTs(row.lastIpTimestamp) + '</span>';
 
         var desc = getNodeDesc(row.nodeId);
-        html += '<tr data-name="' + name.toLowerCase() + '" data-user="' + (row.lastUser || '').toLowerCase() + '" data-desc="' + desc.toLowerCase() + '">';
+        var dispUser = row.lastUser || getNodeLastUser(row.nodeId) || '';
+        html += '<tr data-name="' + name.toLowerCase() + '" data-user="' + dispUser.toLowerCase() + '" data-desc="' + desc.toLowerCase() + '">';
         html += '<td>' + name + '</td>';
         html += '<td>' + (desc || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
-        html += '<td>' + (row.lastUser || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
+        html += '<td>' + (dispUser || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
         html += '<td>' + ipCell + '</td>';
         html += '<td>' + fmtBootTime(row.lastBoot) + '</td>';
         html += '<td><span class="flink" onclick="loadDeviceDetail(\'' + row.nodeId + '\', \'' + name.replace(/'/g, "\\'") + '\')">Details &rsaquo;</span></td>';
@@ -1520,7 +1529,7 @@
       else { complianceSortKey = key; complianceSortAsc = true; }
       complianceOverviewData.sort(function (a, b) {
         var av, bv;
-        if (key === 'user') { av = (a.lastUser || ''); bv = (b.lastUser || ''); }
+        if (key === 'user') { av = (a.lastUser || getNodeLastUser(a.nodeId)); bv = (b.lastUser || getNodeLastUser(b.nodeId)); }
         else if (key === 'desc') { av = getNodeDesc(a.nodeId); bv = getNodeDesc(b.nodeId); }
         else { av = getNodeName(a.nodeId); bv = getNodeName(b.nodeId); }
         av = av.toLowerCase(); bv = bv.toLowerCase();
