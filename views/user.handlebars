@@ -1003,6 +1003,50 @@
       return true;
     }
 
+    function redrawScriptTree() {
+      var lastpath = null;
+      var str = '';
+      var indent = 0;
+      var folder_id = null;
+      str += '<div style="display: block;overflow-y: auto;max-height: 700px;">'
+      scriptTree.forEach(function (f) {
+        if (f.path != lastpath && f.type == 'folder') {
+          indent = (f.path.match(/\//g) || []).length + 1;
+          var name = f.path.match(/[^\/]+$/);
+          folder_id = f._id;
+          str += '<div draggable="true" x-data-path="' + f.path + '" x-data-id="' + f._id + '" x-data-folder="' + folder_id + '" style="margin-left: ' + indent + 'em;" class="lifolder" onclick="toggleCollapse(this);"><span class="fname">' + name + '</span></div>';
+          lastpath = f.path;
+          indent += 1;
+        }
+        if (f.type != 'folder') {
+          str += '<div id="' + f._id + '" draggable="true"  x-data-path="' + f.path + '" x-data-id="' + f._id + '" x-data-folder="' + folder_id + '" style="margin-left: ' + indent + 'em;" class="liscript" onclick="goScript(this);"><span class="fname">' + f.name + '</span> [<span class="ftype">' + f.filetype + '</span>]</div>';
+        }
+      });
+      str += '</div>';
+      document.getElementById('scriptContainer').innerHTML = str;
+      var liScripts = document.querySelectorAll('.liscript');
+      var liFolders = document.querySelectorAll('.lifolder');
+      liScripts.forEach(function (el) {
+        el.addEventListener('mousedown', function () { elementDragged = true; });
+        el.addEventListener('mouseup', function () { elementDragged = false; });
+        el.addEventListener('dragstart', function (evt) { evt.dataTransfer.setData('text/plain', evt.target.getAttribute('x-data-id')); });
+      });
+      liFolders.forEach(function (el) {
+        el.addEventListener('drop', dropMove);
+        el.addEventListener('dragover', function (e) { e.preventDefault(); });
+        el.addEventListener('mousedown', function () { elementDragged = true; });
+        el.addEventListener('mouseup', function () { elementDragged = false; });
+        el.addEventListener('dragstart', function (evt) { evt.dataTransfer.setData('text/plain', evt.target.getAttribute('x-data-id')); });
+      });
+      resizeIframe();
+      selectPreviouslySelectedScript();
+    }
+
+    parent.pluginHandler.scripttask.newScriptTree = function (message) {
+      scriptTree = message.event.tree;
+      redrawScriptTree();
+    }
+
     function doOnLoad() {
       redrawScriptTree();
       selectPreviouslySelectedScript();
