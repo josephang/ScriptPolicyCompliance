@@ -21,7 +21,8 @@ module.exports.scripttask = function (parent) {
         'historyData',
         'variableData',
         'malix_triggerOption',
-        'hook_agentCoreIsStable'
+        'hook_agentCoreIsStable',
+        'server_startup'
     ];
 
     obj.malix_triggerOption = function (selectElem) {
