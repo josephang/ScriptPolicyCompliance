@@ -57,6 +57,51 @@ module.exports.scripttask = function (parent) {
             obj.enforceDeviceEventRetention();
             obj.retentionTimer = setInterval(obj.enforceDeviceEventRetention, 6 * 60 * 60 * 1000);
 
+            // Check if our local DB has any power events at all. If not, trigger a history sync.
+            obj.db.hasAnyDeviceEvents('powerState').then(async (events) => {
+                if (events && events.length === 0) {
+                    console.log("ScriptPolicyCompliance: No internal power history found. Beginning historical sync from MeshCentral...");
+                    var getTimelineFunc = null;
+                    if (obj.meshServer && obj.meshServer.db) {
+                        getTimelineFunc = obj.meshServer.db.GetPowerTimeline || obj.meshServer.db.getPowerTimeline;
+                    }
+                    if (typeof getTimelineFunc === 'function') {
+                        getTimelineFunc.call(obj.meshServer.db, '*', async function (err, docs) {
+                            if (err || !docs || docs.length === 0) return;
+                            console.log("ScriptPolicyCompliance: Found " + docs.length + " historical power events in MeshCentral. Syncing...");
+
+                            for (var i = 0; i < docs.length; i++) {
+                                var doc = (docs[i].doc !== undefined) ? (typeof docs[i].doc === 'string' ? JSON.parse(docs[i].doc) : docs[i].doc) : docs[i];
+                                var stateNum = (doc.state !== undefined ? doc.state : (doc.s !== undefined ? doc.s : (doc.p !== undefined ? doc.p : -1)));
+                                var nodeid = doc.nodeid || doc.node;
+                                if (stateNum !== -1 && nodeid) {
+                                    try {
+                                        var meshId = null;
+                                        var domains = obj.meshServer.domains || {};
+                                        for (var domainId in domains) {
+                                            var domain = domains[domainId];
+                                            if (domain.meshes) {
+                                                for (var mid in domain.meshes) {
+                                                    if (nodeid.startsWith('node//' + mid.split('//')[1])) { meshId = mid; break; }
+                                                }
+                                            }
+                                            if (meshId) break;
+                                        }
+
+                                        var timeRaw = doc.time || doc.d;
+                                        var timeMs = (timeRaw instanceof Date) ? timeRaw.getTime() : (typeof timeRaw === 'number' ? (timeRaw > 1e10 ? timeRaw : timeRaw * 1000) : new Date(timeRaw).getTime());
+                                        if (timeMs && !isNaN(timeMs)) {
+                                            await obj.db.addDeviceEvent(nodeid, meshId, 'powerState', { state: stateNum }, timeMs);
+                                        }
+                                    } catch (e) { }
+                                }
+                            }
+                            console.log("ScriptPolicyCompliance: Historical Power Sync Complete.");
+                        });
+                    }
+                }
+            }).catch(e => { console.log("ScriptPolicyCompliance: Could not check power history length for sync", e); });
+
             // Listen for node disconnections and power state changes to update Power History
             obj.meshServer.AddEventDispatch(['*'], obj.meshServer);
             obj.meshServer.on('DispatchEvent', function (targets, source, event) {

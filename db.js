@@ -346,16 +346,21 @@ module.exports.CreateDB = function (meshserver) {
 
         // --- Compliance Tab: Device Event Tracking ---
 
-        obj.addDeviceEvent = function (nodeId, meshId, eventType, data) {
+        obj.addDeviceEvent = function (nodeId, meshId, eventType, data, historicTime) {
+            var ts = historicTime ? Math.floor(historicTime / 1000) : Math.floor(Date.now() / 1000);
             var rec = {
                 type: 'deviceEvent',
                 eventType: eventType,
                 nodeId: nodeId,
                 meshId: meshId || null,
-                timestamp: Math.floor(Date.now() / 1000),
+                timestamp: ts,
                 data: data || {}
             };
             return obj.scriptFile.insertOne(rec);
+        };
+
+        obj.hasAnyDeviceEvents = function (eventType) {
+            return obj.scriptFile.find({ type: 'deviceEvent', eventType: eventType }).limit(1).toArray();
         };
 
         obj.getLastDeviceEvent = function (nodeId, eventType) {
