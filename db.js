@@ -292,6 +292,17 @@ module.exports.CreateDB = function (meshserver) {
             });
         };
 
+        // --- Compliance Power Script External Download Server ---
+        obj.getExternalDownloadServer = function () {
+            return obj.scriptFile.find({ type: 'externalDownloadServer' }).toArray();
+        };
+        obj.saveExternalDownloadServer = function (configObj) {
+            configObj.type = 'externalDownloadServer';
+            return obj.scriptFile.deleteMany({ type: 'externalDownloadServer' }).then(() => {
+                return obj.scriptFile.insertOne(configObj);
+            });
+        };
+
         obj.addPolicyAssignment = function (assignObj) {
             assignObj.type = 'policyAssignment';
             return obj.scriptFile.insertOne(assignObj);

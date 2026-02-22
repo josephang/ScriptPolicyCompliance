@@ -1119,6 +1119,19 @@ module.exports.scripttask = function (parent) {
                     obj.serveraction({ pluginaction: 'getSmtpConfig' }, myparent, grandparent);
                 });
                 break;
+            case 'getExternalDownloadServer':
+                obj.db.getExternalDownloadServer().then(config => {
+                    var targets = ['*', 'server-users'];
+                    obj.meshServer.DispatchEvent(targets, obj, { nolog: true, action: 'plugin', plugin: 'scripttask', pluginaction: 'externalDownloadServerData', config: config[0] || {} });
+                }).catch(e => {
+                    console.log("CompliancePowerScript ERROR getExternalDownloadServer:", e);
+                });
+                break;
+            case 'saveExternalDownloadServer':
+                obj.db.saveExternalDownloadServer(command.config).then(() => {
+                    obj.serveraction({ pluginaction: 'getExternalDownloadServer' }, myparent, grandparent);
+                });
+                break;
             case 'deletePolicyAssignment':
                 obj.db.deletePolicyAssignment(command.id).then(() => {
                     obj.serveraction({ pluginaction: 'getPolicies' }, myparent, grandparent);

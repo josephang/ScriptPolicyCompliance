@@ -268,6 +268,15 @@
       </div>
       <div id="infoContainer">
         <div id="history">
+          <div class="infoBar">External Download Server</div>
+          <div id="extDownload" class="infoContent">
+            <div style="padding: 10px 5px;">
+              <span id="extDownloadUrlText"
+                style="display:block; margin-bottom:10px; font-size:13px; word-break:break-all;"><i>No External Download
+                  URL configured.</i></span>
+              <button onclick="promptExtDownloadServer()">Set URL</button>
+            </div>
+          </div>
           <div class="infoBar">Advanced Run</div>
           <div id="multiRun" class="infoContent">
             <div style="padding-top: 15px;"><button onclick="goAdvancedRun();">Schedule on Selected</button></div>
@@ -1394,6 +1403,24 @@
       resizeIframe();
     }
 
+    function goEmailNotification() {
+      // Hide other sections, show Email
+      document.getElementById('scriptContainer').style.display = 'none';
+      document.getElementById('infoContainer').style.display = 'none';
+      document.getElementById('policy_endpoints').style.display = 'none';
+      document.getElementById('compliance_endpoints').style.display = 'none';
+      document.getElementById('email_notifications').style.display = 'block';
+      parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getSmtpConfig' });
+    }
+
+    function promptExtDownloadServer() {
+      var currentVal = document.getElementById('extDownloadUrlText').innerText;
+      if (currentVal.indexOf('No External') !== -1) currentVal = 'https://';
+      var newVal = prompt('Enter the External Download Server URL:', currentVal);
+      if (newVal !== null) {
+        parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'saveExternalDownloadServer', config: { url: newVal.trim() } });
+      }
+    }
     function goSmtp() {
       document.getElementById('scripts_endpoints').style.display = 'none';
       document.getElementById('policy_endpoints').style.display = 'none';
@@ -1963,6 +1990,16 @@
     }
     parent.pluginHandler.scripttask.smtpData = function (message) {
       loadSmtpData(message.event.config, message.event.error);
+    }
+    parent.pluginHandler.scripttask.externalDownloadServerData = function (message) {
+      var el = document.getElementById('extDownloadUrlText');
+      if (el) {
+        if (message.event.config && message.event.config.url) {
+          el.innerHTML = '<a href="' + message.event.config.url + '" target="_blank">' + message.event.config.url + '</a>';
+        } else {
+          el.innerHTML = '<i>No External Download URL configured.</i>';
+        }
+      }
     }
     function parseVariables() {
       var vTbl = document.getElementById('varTbl');
