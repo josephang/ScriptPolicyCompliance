@@ -1032,7 +1032,7 @@
         }
 
         tr.innerHTML = `
-    < td> ${a.targetType}</td>
+      <td>${a.targetType}</td>
       <td>${targetName}</td>
       <td><span class="flink" style="color:#f88" onclick="deleteAssignment('${a._id}');">Remove</span></td>
       `;
@@ -1973,7 +1973,7 @@
 
       if (state.length) {
         state.forEach(function (s) {
-          let tpl = `< td> ${s.policyName || s.policyId}</td>
+          let tpl = `<td>${s.policyName || s.policyId}</td>
                     <td><b>${s.state}</b></td>
                     <td>${s.lastRunTime ? new Date(s.lastRunTime * 1000).toLocaleString() : 'Never'}</td>
                     <td>
