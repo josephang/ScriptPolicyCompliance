@@ -1192,53 +1192,97 @@ module.exports.scripttask = function (parent) {
                 }).catch(e => { console.log('ScriptPolicyCompliance ERROR deleteRetentionRule:', e); });
                 break;
             case 'getPowerHistory':
-                if (obj.meshServer && obj.meshServer.db && typeof obj.meshServer.db.GetEvents == 'function') {
+                (function () {
                     var nodeid = command.nodeId;
-                    var limit = 5000;
                     var retentionDays = command.days || 180;
                     var timeLimitMs = Date.now() - retentionDays * 86400 * 1000;
                     var domainId = (myparent && myparent.domain) ? myparent.domain.id : '';
-
-                    // MeshCentral power state labels (action='pwr', state field)
-                    var powerStateLabels = { 0: 'Powered Off', 1: 'Powered On', 2: 'Sleeping', 3: 'Hibernating', 4: 'Soft-Off', 5: 'Unknown' };
-
-                    obj.meshServer.db.GetEvents([nodeid], domainId, limit, function (err, docs) {
-                        var pEvents = [];
-                        if (!err && docs) {
-                            docs.forEach(function (ev) {
-                                // Only include power-state events
-                                var isPowerEvent = (ev.action === 'pwr' || ev.action === 'power' || ev.state !== undefined || ev.s !== undefined);
-                                if (!isPowerEvent) return;
-
-                                // Normalise timestamp to Unix SECONDS regardless of MeshCentral format
-                                var rawTime = ev.time;
-                                var tMs = 0;
-                                if (rawTime instanceof Date) tMs = rawTime.getTime();
-                                else if (typeof rawTime === 'string') tMs = new Date(rawTime).getTime();
-                                else if (typeof rawTime === 'number') tMs = rawTime > 1e10 ? rawTime : rawTime * 1000;
-                                if (!tMs || isNaN(tMs)) return;
-                                if (tMs < timeLimitMs) return;
-
-                                var stateNum = (ev.state !== undefined ? ev.state : (ev.s !== undefined ? ev.s : -1));
-                                var stateLabel = powerStateLabels[stateNum] || (ev.msg || 'Power Event');
-
-                                pEvents.push({
-                                    time: Math.floor(tMs / 1000), // Unix seconds for fmtTs()
-                                    state: stateNum,
-                                    stateLabel: stateLabel,
-                                    msg: ev.msg || null
-                                });
-                            });
-                            // Sort ascending for timeline rendering
-                            pEvents.sort(function (a, b) { return a.time - b.time; });
-                        }
-                        var targets = ['*', 'server-users'];
-                        obj.meshServer.DispatchEvent(targets, obj, { nolog: true, action: 'plugin', plugin: 'scripttask', pluginaction: 'powerHistory', events: pEvents, nodeId: nodeid });
-                    });
-                } else {
                     var targets = ['*', 'server-users'];
-                    obj.meshServer.DispatchEvent(targets, obj, { nolog: true, action: 'plugin', plugin: 'scripttask', pluginaction: 'powerHistory', events: [], nodeId: command.nodeId, error: "Database not available" });
-                }
+
+                    var powerStateLabels = {
+                        0: 'Powered Off',
+                        1: 'Powered On',
+                        2: 'Sleeping',
+                        3: 'Hibernating',
+                        4: 'Soft-Off',
+                        5: 'Unknown / Connected'
+                    };
+
+                    function normTime(rawTime) {
+                        if (!rawTime) return 0;
+                        if (rawTime instanceof Date) return rawTime.getTime();
+                        if (typeof rawTime === 'string') return new Date(rawTime).getTime();
+                        if (typeof rawTime === 'number') return rawTime > 1e10 ? rawTime : rawTime * 1000;
+                        return 0;
+                    }
+
+                    function buildEvents(docs, isNativePwr) {
+                        var pEvents = [];
+                        (docs || []).forEach(function (ev) {
+                            if (!isNativePwr) {
+                                var ok = (ev.action === 'pwr' || ev.action === 'power' ||
+                                    ev.state !== undefined || ev.s !== undefined ||
+                                    ev.type === 'power');
+                                if (!ok) return;
+                            }
+                            var tMs = normTime(ev.time || ev.d);
+                            if (!tMs || isNaN(tMs) || tMs < timeLimitMs) return;
+                            var stateNum = (ev.state !== undefined ? ev.state :
+                                (ev.s !== undefined ? ev.s :
+                                    (ev.p !== undefined ? ev.p : -1)));
+                            pEvents.push({
+                                time: Math.floor(tMs / 1000),
+                                state: stateNum,
+                                stateLabel: powerStateLabels[stateNum] || (ev.msg || ('State ' + stateNum))
+                            });
+                        });
+                        pEvents.sort(function (a, b) { return a.time - b.time; });
+                        // Pre-calculate duration for each segment (seconds until next event)
+                        for (var i = 0; i < pEvents.length; i++) {
+                            var nextTime = (i + 1 < pEvents.length) ? pEvents[i + 1].time : Math.floor(Date.now() / 1000);
+                            pEvents[i].duration = nextTime - pEvents[i].time;
+                        }
+                        return pEvents;
+                    }
+
+                    function dispatch(pEvents, error) {
+                        obj.meshServer.DispatchEvent(targets, obj, {
+                            nolog: true, action: 'plugin', plugin: 'scripttask',
+                            pluginaction: 'powerHistory', events: pEvents,
+                            nodeId: nodeid, error: error || null
+                        });
+                    }
+
+                    if (!obj.meshServer || !obj.meshServer.db) {
+                        dispatch([], 'Database not available'); return;
+                    }
+
+                    var db = obj.meshServer.db;
+
+                    // Strategy 1: native MeshCentral power timeline
+                    if (typeof db.GetPowerTimeline === 'function') {
+                        db.GetPowerTimeline(nodeid, function (err, docs) {
+                            if (err || !docs || !docs.length) {
+                                // Fall through to GetEvents
+                                tryGetEvents();
+                            } else {
+                                dispatch(buildEvents(docs, true));
+                            }
+                        });
+                    } else {
+                        tryGetEvents();
+                    }
+
+                    function tryGetEvents() {
+                        if (typeof db.GetEvents !== 'function') {
+                            dispatch([], 'No power history API available on this MeshCentral version');
+                            return;
+                        }
+                        db.GetEvents([nodeid], domainId, 5000, function (err, docs) {
+                            dispatch(buildEvents(docs, false), err ? String(err) : null);
+                        });
+                    }
+                }());
                 break;
             default:
                 console.log('PLUGIN: ScriptTask: unknown action');
