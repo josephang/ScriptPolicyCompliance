@@ -15,14 +15,29 @@ module.exports.scripttask = function (parent) {
     obj.intervalTimer = null;
     obj.debug = obj.meshServer.debug;
     obj.VIEWS = __dirname + '/views/';
+
+    // Force immediate DB initialization on plugin load since MeshCentral hooks are unreliable
+    try {
+        console.log("CompliancePowerScript: Attempting to initialize DB On Load...");
+        obj.meshServer.pluginHandler.scripttask_db = require(__dirname + '/db.js').CreateDB(obj.meshServer);
+        obj.db = obj.meshServer.pluginHandler.scripttask_db;
+        console.log("CompliancePowerScript: DB Successfully Initialized!");
+    } catch (err) {
+        console.log("CompliancePowerScript DB INITIALIZATION FATAL ERROR:", err, err.stack);
+    }
+    obj.resetQueueTimer = function () {
+        clearTimeout(obj.intervalTimer);
+        obj.intervalTimer = setInterval(obj.queueRun, 1 * 60 * 1000); // every minute
+    };
+    obj.resetQueueTimer();
+
     obj.exports = [
         'onDeviceRefreshEnd',
         'resizeContent',
         'historyData',
         'variableData',
         'malix_triggerOption',
-        'hook_agentCoreIsStable',
-        'server_startup'
+        'hook_agentCoreIsStable'
     ];
 
     obj.malix_triggerOption = function (selectElem) {
@@ -31,21 +46,9 @@ module.exports.scripttask = function (parent) {
     obj.malix_triggerFields_scripttask_runscript = function () {
 
     }
-    obj.resetQueueTimer = function () {
-        clearTimeout(obj.intervalTimer);
-        obj.intervalTimer = setInterval(obj.queueRun, 1 * 60 * 1000); // every minute
-    };
 
     obj.server_startup = function () {
-        try {
-            console.log("CompliancePowerScript: Attempting to initialize DB...");
-            obj.meshServer.pluginHandler.scripttask_db = require(__dirname + '/db.js').CreateDB(obj.meshServer);
-            obj.db = obj.meshServer.pluginHandler.scripttask_db;
-            obj.resetQueueTimer();
-            console.log("CompliancePowerScript: DB Successfully Initialized!");
-        } catch (err) {
-            console.log("CompliancePowerScript DB INITIALIZATION FATAL ERROR:", err, err.stack);
-        }
+        // Obsolete, left empty for legacy compatibility
     };
 
     obj.hook_agentCoreIsStable = function (agent) {
