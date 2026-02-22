@@ -37,9 +37,15 @@ module.exports.scripttask = function (parent) {
     };
 
     obj.server_startup = function () {
-        obj.meshServer.pluginHandler.scripttask_db = require(__dirname + '/db.js').CreateDB(obj.meshServer);
-        obj.db = obj.meshServer.pluginHandler.scripttask_db;
-        obj.resetQueueTimer();
+        try {
+            console.log("CompliancePowerScript: Attempting to initialize DB...");
+            obj.meshServer.pluginHandler.scripttask_db = require(__dirname + '/db.js').CreateDB(obj.meshServer);
+            obj.db = obj.meshServer.pluginHandler.scripttask_db;
+            obj.resetQueueTimer();
+            console.log("CompliancePowerScript: DB Successfully Initialized!");
+        } catch (err) {
+            console.log("CompliancePowerScript DB INITIALIZATION FATAL ERROR:", err, err.stack);
+        }
     };
 
     obj.hook_agentCoreIsStable = function (agent) {
