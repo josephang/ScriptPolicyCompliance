@@ -1463,6 +1463,18 @@
       return '';
     }
 
+    function getNodeLastIp(nodeId) {
+      if (parent && parent.nodes) {
+        var n = parent.nodes.find(function (x) { return x._id === nodeId; });
+        if (n) {
+          if (n.pconn && n.pconn.remoteIp) return n.pconn.remoteIp;
+          if (n.ip) return n.ip;
+          if (n.address) return n.address;
+        }
+      }
+      return '';
+    }
+
     function getTzLabel(d) {
       var m = d.toString().match(/\\((.*)\\)/);
       return m ? m[1] : 'Local Time';
@@ -1511,11 +1523,11 @@
       }
       var html = '';
       rows.forEach(function (row) {
-        var name = getNodeName(row.nodeId);
-        var ipLink = row.lastIp
-          ? '<a href="https://iplocation.com/?ip=' + encodeURIComponent(row.lastIp) + '" target="_blank" rel="noopener" style="color:#0066cc;">' + row.lastIp + '</a>'
+        var dispIp = row.lastIp || getNodeLastIp(row.nodeId);
+        var ipLink = dispIp
+          ? '<a href="https://iplocation.com/?ip=' + encodeURIComponent(dispIp) + '" target="_blank" rel="noopener" style="color:#0066cc;">' + dispIp + '</a>'
           : '-';
-        var ipCell = ipLink + '<br><span style="color:#999;font-size:11px;">' + fmtTs(row.lastIpTimestamp) + '</span>';
+        var ipCell = ipLink + (row.lastIpTimestamp ? '<br><span style="color:#999;font-size:11px;">' + fmtTs(row.lastIpTimestamp) + '</span>' : '');
 
         var desc = getNodeDesc(row.nodeId);
         var dispUser = row.lastUser || getNodeLastUser(row.nodeId) || '';
@@ -1613,8 +1625,6 @@
         var pGlobal = retentionRulesCache.find(function (r) { return r.eventType === 'powerHistory' && r.targetType === 'global'; });
         if (pGlobal && pGlobal.days) pDays = pGlobal.days;
       }
-      var pTitle = document.getElementById('cev-power-title');
-      if (pTitle) pTitle.innerHTML = '&#9889; Power History (' + pDays + ' Days)';
 
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getDeviceEvents', nodeId: nodeId });
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getPowerHistory', nodeId: nodeId, days: pDays });
@@ -1647,29 +1657,43 @@
           var tl = document.getElementById('cev-power-timeline');
           if (tl) {
             var tlHtml = '';
-            events.sort(function (a, b) { return (a.time || 0) - (b.time || 0); });
-            var lastState = 0; // 0=off, 1=on
-            var now = Date.now(), minTime = events.length ? (events[0].time || now - 86400000) : now;
-            var range = now - minTime;
-            if (range <= 0) range = 1;
+            var isCurrentlyOnline = false;
+            if (parent && parent.nodes) {
+              var n = parent.nodes.find(function (x) { return x._id === nodeId; });
+              if (n) isCurrentlyOnline = (n.conn === 1 || n.icon === 1 || !!n.pconn);
+            }
 
-            // Very basic state assumption based on typical MeshCentral events
-            for (var i = 0; i < events.length; i++) {
-              var e = events[i];
-              var eTime = typeof e.time === 'number' ? e.time : new Date(e.time).getTime();
-              var isOff = (e.msg && e.msg.toLowerCase().includes('disconnect')) || e.state === 0 || e.s === 0 || e.action === 'agentDisconnected';
-              var isOn = (e.msg && e.msg.toLowerCase().includes('connect')) || e.state === 1 || e.state === 2 || e.s === 1 || e.s === 2;
+            if (events.length === 0) {
+              if (isCurrentlyOnline) tlHtml = '<div style="width:100%; background:#28a745; height:100%; border-right:1px solid rgba(0,0,0,0.1);" title="Currently Online"></div>';
+              else tlHtml = '<div style="width:100%; background:#ccc; height:100%; text-align:center; font-size:11px; line-height:24px; color:#555;">Offline / No recent data</div>';
+            } else {
+              events.sort(function (a, b) { return (a.time || 0) - (b.time || 0); });
+              var firstEvent = events[0];
+              var firstIsOff = (firstEvent.msg && firstEvent.msg.toLowerCase().includes('disconnect')) || firstEvent.state === 0 || firstEvent.s === 0 || firstEvent.action === 'agentDisconnected';
 
-              var nextTime = (i + 1 < events.length) ? (typeof events[i + 1].time === 'number' ? events[i + 1].time : new Date(events[i + 1].time).getTime()) : now;
-              var duration = nextTime - eTime;
-              var percent = (duration / range) * 100;
+              var lastState = firstIsOff ? 1 : 0; // If the FIRST event is a disconnect, it MUST have been online before that.
+              var now = Date.now(), minTime = events[0].time || now - 86400000;
+              var range = now - minTime;
+              if (range <= 0) range = 1;
 
-              if (isOn) lastState = 1;
-              else if (isOff) lastState = 0;
+              // Very basic state assumption based on typical MeshCentral events
+              for (var i = 0; i < events.length; i++) {
+                var e = events[i];
+                var eTime = typeof e.time === 'number' ? e.time : new Date(e.time).getTime();
+                var isOff = (e.msg && e.msg.toLowerCase().includes('disconnect')) || e.state === 0 || e.s === 0 || e.action === 'agentDisconnected';
+                var isOn = (e.msg && e.msg.toLowerCase().includes('connect')) || e.state === 1 || e.state === 2 || e.s === 1 || e.s === 2;
 
-              var color = lastState ? '#28a745' : '#dc3545';
-              if (percent > 0.05) {
-                tlHtml += '<div style="width:' + percent + '%; background:' + color + '; height:100%; border-right:1px solid rgba(0,0,0,0.1);" title="' + new Date(eTime).toLocaleString() + ' - ' + (e.msg || 'State changed') + '"></div>';
+                var nextTime = (i + 1 < events.length) ? (typeof events[i + 1].time === 'number' ? events[i + 1].time : new Date(events[i + 1].time).getTime()) : now;
+                var duration = nextTime - eTime;
+                var percent = (duration / range) * 100;
+
+                if (isOn) lastState = 1;
+                else if (isOff) lastState = 0;
+
+                var color = lastState ? '#28a745' : '#dc3545';
+                if (percent > 0.05) {
+                  tlHtml += '<div style="width:' + percent + '%; background:' + color + '; height:100%; border-right:1px solid rgba(0,0,0,0.1);" title="' + new Date(eTime).toLocaleString() + ' - ' + (e.msg || 'State changed') + '"></div>';
+                }
               }
             }
             if (!tlHtml) tlHtml = '<div style="width:100%; background:#ccc; height:100%; text-align:center; font-size:11px; line-height:24px; color:#555;">Waiting for more connection data...</div>';
@@ -1684,7 +1708,7 @@
         var tbl = document.getElementById(tId);
         if (!tbl) return '';
         var rows = tbl.querySelectorAll('tr');
-        var csv = tTitle + '\\n';
+        var csv = tTitle + '\\r\\n';
         rows.forEach(function (r) {
           var cells = r.querySelectorAll('td, th');
           var rowData = [];
@@ -1692,12 +1716,12 @@
             var txt = c.innerText.replace(/"/g, '""');
             rowData.push('"' + txt + '"');
           });
-          csv += rowData.join(',') + '\\n';
+          csv += rowData.join(',') + '\\r\\n';
         });
         return csv;
       }
       var devName = document.getElementById('cev-detail-name').innerText;
-      var fileData = "Device Name: " + devName + "\\n\\n" + getTableCSV(tableId, title);
+      var fileData = "Device Name: " + devName + "\\r\\n\\r\\n" + getTableCSV(tableId, title);
 
       var blob = new Blob([fileData], { type: 'text/csv' });
       var url = window.URL.createObjectURL(blob);
