@@ -1448,15 +1448,14 @@ module.exports.scripttask = function (parent) {
                     var db = obj.meshServer.db;
 
                     // Strategy 1: native MeshCentral power timeline
-                    if (typeof db.GetPowerTimeline === 'function') {
-                        db.GetPowerTimeline(nodeid, function (err, docs) {
+                    var getTimelineFunc = db.getPowerTimeline || db.GetPowerTimeline;
+                    if (typeof getTimelineFunc === 'function') {
+                        getTimelineFunc.call(db, nodeid, function (err, docs) {
                             if (err || !docs || !docs.length) {
-                                console.log("ScriptPolicyCompliance: GetPowerTimeline returned empty array or error for " + nodeid);
+                                console.log("ScriptPolicyCompliance: getPowerTimeline returned empty array or error for " + nodeid);
                                 tryGetEvents();
                             } else {
-                                console.log("ScriptPolicyCompliance: GetPowerTimeline retrieved " + docs.length + " events. Raw [0] is: ", typeof docs[0], docs[0]);
                                 var eventsArr = buildEvents(docs, true);
-                                console.log("ScriptPolicyCompliance: buildEvents(docs, true) resolved length: " + eventsArr.length);
                                 dispatch(eventsArr);
                             }
                         });
