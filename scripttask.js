@@ -96,7 +96,7 @@ module.exports.scripttask = function (parent) {
         var meshId = agent.dbMeshKey || null;
 
         // Extract public IP (format: "1.2.3.4:port" or "::ffff:1.2.3.4:port")
-        var rawAddr = agent.remoteaddrport || '';
+        var rawAddr = String(agent.remoteaddrport || '');
         var ip = rawAddr.replace(/^::ffff:/, '').replace(/:\\d+$/, '') || 'unknown';
 
         // Record IP only if changed

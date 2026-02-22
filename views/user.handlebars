@@ -1452,9 +1452,13 @@
       if (parent && parent.nodes) {
         var n = parent.nodes.find(function (x) { return x._id === nodeId; });
         if (n) {
-          if (n.pconn && n.pconn.remoteIp) return n.pconn.remoteIp;
-          if (n.ip) return n.ip;
-          if (n.address) return n.address;
+          var raw = '';
+          if (n.pconn && n.pconn.remoteIp) raw = n.pconn.remoteIp;
+          else if (n.ip) raw = n.ip;
+          else if (n.address) raw = n.address;
+          if (raw && typeof raw === 'string') {
+            return raw.replace(/^::ffff:/, '').replace(/:\\d+$/, '');
+          }
         }
       }
       return '';
