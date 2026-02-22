@@ -1365,8 +1365,13 @@
       return self.indexOf(value) === index;
     }
     function resizeIframe() {
-      document.body.style.height = 0;
-      parent.pluginHandler.scripttask.resizeContent();
+      // Do NOT set body.style.height = 0 — this collapses the iframe and causes
+      // a visible bounce/flash on the My Devices page while it re-expands.
+      // Instead, let the parent measure the actual content height.
+      if (typeof parent !== 'undefined' && parent.pluginHandler &&
+        parent.pluginHandler.scripttask && typeof parent.pluginHandler.scripttask.resizeContent === 'function') {
+        parent.pluginHandler.scripttask.resizeContent();
+      }
     }
     function updateNodesTable() {
       let dRows = document.querySelectorAll('.stNodeRow');
@@ -1664,8 +1669,16 @@
     }
 
     function vtLoad() {
+      // Read MC core preference as highest-priority source
+      var mcDark = null;
+      try { mcDark = parent.localStorage.getItem('darkmode'); } catch (e) { }
+      if (mcDark === null) { try { mcDark = localStorage.getItem('darkmode'); } catch (e) { } }
+
       document.getElementById('vt-enable').checked = vtGetStoredOrDefault('enabled') !== false;
-      document.getElementById('vt-darkmode').value = vtGetStoredOrDefault('darkmode') || 'system';
+      var dmVal = vtGetStoredOrDefault('darkmode') || 'system';
+      if (mcDark === 'yes') dmVal = 'dark';
+      else if (mcDark === '' || mcDark === 'no') dmVal = 'light';
+      document.getElementById('vt-darkmode').value = dmVal;
       document.getElementById('vt-accent').value = vtGetStoredOrDefault('accent') || '#3b6ef5';
       var r = parseInt(vtGetStoredOrDefault('radius'), 10) || 8;
       document.getElementById('vt-radius').value = r;
@@ -1729,8 +1742,13 @@
           if (lnk) lnk.remove();
         }
       });
-      // Sync parent localStorage for theme
-      try { parent.localStorage.setItem('veritimo-theme', cfg.darkmode === 'dark' ? 'dark' : cfg.darkmode === 'light' ? 'light' : 'system'); } catch (e) { }
+      // Sync both Veritimo preference and MeshCentral core's 'darkmode' key
+      try {
+        var mcDarkVal = cfg.darkmode === 'dark' ? 'yes' : '';
+        parent.localStorage.setItem('veritimo-theme', cfg.darkmode === 'dark' ? 'dark' : cfg.darkmode === 'light' ? 'light' : 'system');
+        parent.localStorage.setItem('darkmode', mcDarkVal); // MC core key
+      } catch (e) { }
+      try { localStorage.setItem('darkmode', cfg.darkmode === 'dark' ? 'yes' : ''); } catch (e) { }
     }
 
     function vtSave() {

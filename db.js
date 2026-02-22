@@ -402,6 +402,17 @@ module.exports.CreateDB = function (meshserver) {
             return obj.scriptFile.deleteOne({ _id: id, type: 'complianceRetention' });
         };
 
+        // --- External Download Server ---
+        obj.getExternalDownloadServer = function () {
+            return obj.scriptFile.find({ type: 'externalDownloadServer' }).limit(1).toArray();
+        };
+        obj.saveExternalDownloadServer = function (config) {
+            return obj.scriptFile.deleteMany({ type: 'externalDownloadServer' }).then(function () {
+                var rec = Object.assign({}, config || {}, { type: 'externalDownloadServer' });
+                return obj.scriptFile.insertOne(rec);
+            });
+        };
+
         // --- Power State Alert Config ---
         obj.getPowerAlertConfig = function (nodeId) {
             return obj.scriptFile.find({ type: 'powerAlertConfig', nodeId: nodeId }).limit(1).toArray();
