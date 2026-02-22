@@ -1483,6 +1483,7 @@
       setActiveTab('tabCompliance');
       var tbody = document.getElementById('cev-overview-body');
       if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="color:#999;font-style:italic;">Loading...</td></tr>';
+      parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getComplianceOverview' });
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getRetentionRules' });
       resizeIframe();
     }
