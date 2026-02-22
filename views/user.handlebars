@@ -233,6 +233,7 @@
       <span onclick="goDownload();">Download</span>
       <span onclick="goRun();">Run</span>
       <span onclick="goPolicy();">Compliance Policies</span>
+      <span onclick="goSmtp();">Email Notifications</span>
     </div>
     <div id="scripts_endpoints">
       <div id="scriptContainer">
@@ -515,6 +516,11 @@
     window.policyWindow.focus();
   }
 
+  function goSmtp() {
+    window.smtpWindow = window.open('/pluginadmin.ashx?pin=scripttask&user=1&smtp=1', 'smtp', "width=600,height=550");
+    window.smtpWindow.focus();
+  }
+
   var coll = document.getElementsByClassName("infoBar");
   for (var i = 0; i < coll.length; i++) {
     coll[i].addEventListener("click", function () {
@@ -726,6 +732,11 @@
   parent.pluginHandler.scripttask.policyData = function (message) {
     if (window.policyWindow && !window.policyWindow.closed && typeof window.policyWindow.loadPolicyData === 'function') {
       window.policyWindow.loadPolicyData(message.event.policies, message.event.assignments);
+    }
+  }
+  parent.pluginHandler.scripttask.smtpData = function (message) {
+    if (window.smtpWindow && !window.smtpWindow.closed && typeof window.smtpWindow.loadSmtpData === 'function') {
+      window.smtpWindow.loadSmtpData(message.event.config);
     }
   }
   parent.pluginHandler.scripttask.complianceStateData = function (message) {

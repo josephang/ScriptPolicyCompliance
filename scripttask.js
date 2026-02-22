@@ -298,6 +298,10 @@ module.exports.scripttask = function (parent) {
                 var vars = {};
                 res.render(obj.VIEWS + 'policy', vars);
                 return;
+            } else if (req.query.smtp == 1) {
+                var vars = {};
+                res.render(obj.VIEWS + 'smtp', vars);
+                return;
             }
             // default user view (tree)
             try {
@@ -894,6 +898,16 @@ module.exports.scripttask = function (parent) {
                     obj.serveraction({ pluginaction: 'getPolicies' }, myparent, grandparent);
                 });
                 break;
+            case 'getSmtpConfig':
+                obj.db.getSmtpConfig().then(config => {
+                    myparent.send(JSON.stringify({ action: 'plugin', plugin: 'scripttask', pluginaction: 'smtpData', config: config[0] || {} }));
+                });
+                break;
+            case 'saveSmtpConfig':
+                obj.db.saveSmtpConfig(command.config).then(() => {
+                    obj.serveraction({ pluginaction: 'getSmtpConfig' }, myparent, grandparent);
+                });
+                break;
             case 'deletePolicyAssignment':
                 obj.db.deletePolicyAssignment(command.id).then(() => {
                     obj.serveraction({ pluginaction: 'getPolicies' }, myparent, grandparent);
@@ -913,6 +927,70 @@ module.exports.scripttask = function (parent) {
                 console.log('PLUGIN: ScriptTask: unknown action');
                 break;
         }
+    };
+
+    obj.notifyComplianceFailure = async function (alertMessage, policy, nodeId, details, exitCode) {
+        var nodemailer;
+        try {
+            nodemailer = require('nodemailer');
+        } catch (e) {
+            console.log("CompliancePowerScript: nodemailer not found, cannot send emails.");
+            return;
+        }
+
+        // 1. Get SMTP from Plugin DB or Core
+        var smtpConfig = null;
+        var pluginSmtpArray = await obj.db.getSmtpConfig();
+        var pluginSmtp = pluginSmtpArray && pluginSmtpArray.length > 0 ? pluginSmtpArray[0] : null;
+
+        if (pluginSmtp && pluginSmtp.host) {
+            smtpConfig = pluginSmtp;
+        } else if (obj.meshServer.config && obj.meshServer.config.smtp) {
+            smtpConfig = obj.meshServer.config.smtp;
+        }
+
+        if (!smtpConfig || (!smtpConfig.host && !smtpConfig.service)) {
+            console.log("CompliancePowerScript: No SMTP config found.");
+            return;
+        }
+
+        var transportConfig = {
+            host: smtpConfig.host,
+            port: smtpConfig.port,
+            secure: smtpConfig.tlsstrict || smtpConfig.tls || false,
+            auth: {
+                user: smtpConfig.user,
+                pass: smtpConfig.pass
+            }
+        };
+
+        if (smtpConfig.port === 465) transportConfig.secure = true;
+
+        var transporter = nodemailer.createTransport(transportConfig);
+
+        var nodeName = nodeId;
+        var agent = obj.meshServer.webserver.wsagents[nodeId];
+        if (agent && agent.dbNodeKey) {
+            var n = await obj.meshServer.db.Get(agent.dbNodeKey);
+            if (n && n.length > 0) nodeName = n[0].name;
+        } else {
+            if (nodeId && nodeId.startsWith('test')) nodeName = "Test Node";
+        }
+
+        var mailOptions = {
+            from: smtpConfig.from || smtpConfig.user,
+            to: pluginSmtp && pluginSmtp.toAddress ? pluginSmtp.toAddress : (smtpConfig.from || smtpConfig.user),
+            subject: `[Compliance Alert] Device ${nodeName} failed Policy: ${policy.name}`,
+            text: `Compliance Alert Engine\n\nDevice: ${nodeName}\nPolicy: ${policy.name}\n\nMessage: ${alertMessage}\nExit Code: ${exitCode}\n\nDetails:\n${details}`
+        };
+
+        transporter.sendMail(mailOptions, function (error, info) {
+            if (error) {
+                console.log('CompliancePowerScript Mail Error:', error);
+            } else {
+                console.log('CompliancePowerScript Mail Sent:', info.response);
+            }
+        });
     };
 
     return obj;

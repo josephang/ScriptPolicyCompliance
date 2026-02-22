@@ -1,0 +1,82 @@
+<div id="smtpPanel" style="padding: 20px; font-family: Arial, sans-serif;">
+    <h2>Email Notifications (SMTP Configuration)</h2>
+    <p>Configure custom SMTP settings for the Compliance Engine. If left blank, the plugin will attempt to use the
+        MeshCentral server's core SMTP config.</p>
+
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">Host/Server:</label>
+        <input type="text" id="sHost" style="width: 250px;" placeholder="smtp.example.com" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">Port:</label>
+        <input type="number" id="sPort" style="width: 80px;" placeholder="587" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">Username:</label>
+        <input type="text" id="sUser" style="width: 250px;" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">Password:</label>
+        <input type="password" id="sPass" style="width: 250px;" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">From Address:</label>
+        <input type="text" id="sFrom" style="width: 250px;" placeholder="noreply@example.com" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">To Address:</label>
+        <input type="text" id="sTo" style="width: 250px;" placeholder="admin@example.com" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">Enable TLS/SSL:</label>
+        <input type="checkbox" id="sTls" />
+    </div>
+
+    <div style="margin-top: 20px;">
+        <button onclick="saveSmtp();"
+            style="padding: 5px 15px; background: #007bff; color: white; border: none; cursor: pointer;">Save
+            Settings</button>
+        <button onclick="window.close();" style="padding: 5px 15px; margin-left: 10px; cursor: pointer;">Close</button>
+        <button onclick="testSmtp();"
+            style="padding: 5px 15px; margin-left: 10px; background: #28a745; color: white; border: none; cursor: pointer;">Test
+            Email</button>
+    </div>
+</div>
+
+<script>
+    function loadSmtpData(config) {
+        if (!config) config = {};
+        document.getElementById('sHost').value = config.host || '';
+        document.getElementById('sPort').value = config.port || '';
+        document.getElementById('sUser').value = config.user || '';
+        document.getElementById('sPass').value = config.pass || '';
+        document.getElementById('sFrom').value = config.from || '';
+        document.getElementById('sTo').value = config.toAddress || '';
+        document.getElementById('sTls').checked = config.tls || config.tlsstrict || false;
+    }
+
+    function saveSmtp() {
+        var conf = {
+            host: document.getElementById('sHost').value,
+            port: parseInt(document.getElementById('sPort').value) || 587,
+            user: document.getElementById('sUser').value,
+            pass: document.getElementById('sPass').value,
+            from: document.getElementById('sFrom').value,
+            toAddress: document.getElementById('sTo').value,
+            tls: document.getElementById('sTls').checked
+        };
+        window.opener.parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'saveSmtpConfig', config: conf });
+        alert("SMTP Settings Saved!");
+        window.close();
+    }
+
+    function testSmtp() {
+        window.opener.parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'testComplianceNotify' });
+        alert("A test email has been dispatched. If settings are correct, it should arrive momentarily.");
+    }
+
+    // Request initial config
+    window.onload = function () {
+        window.opener.parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getSmtpConfig' });
+    };
+</script>

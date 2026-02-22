@@ -44,7 +44,12 @@ class NEMongo {
     toArray(callback) {
         var self = this;
         return new Promise(function (resolve, reject) {
-            var cursor = self.nedb.find(self._find, self._proj);
+            var cursor;
+            if (self._proj) {
+                cursor = self.nedb.find(self._find, self._proj);
+            } else {
+                cursor = self.nedb.find(self._find);
+            }
             if (self._sort) cursor = cursor.sort(self._sort);
             if (self._limit) cursor = cursor.limit(self._limit);
 

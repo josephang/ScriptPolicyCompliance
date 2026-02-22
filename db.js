@@ -281,6 +281,17 @@ module.exports.CreateDB = function (meshserver) {
             });
         };
 
+        // --- Compliance Power Script SMTP Support ---
+        obj.getSmtpConfig = function () {
+            return obj.scriptFile.find({ type: 'smtpConfig' }).toArray();
+        };
+        obj.saveSmtpConfig = function (configObj) {
+            configObj.type = 'smtpConfig';
+            return obj.scriptFile.deleteMany({ type: 'smtpConfig' }).then(() => {
+                return obj.scriptFile.insertOne(configObj);
+            });
+        };
+
         obj.addPolicyAssignment = function (assignObj) {
             assignObj.type = 'policyAssignment';
             return obj.scriptFile.insertOne(assignObj);
