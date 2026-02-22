@@ -215,7 +215,11 @@
         }
 
         // Called by window.opener
-        window.loadPolicyData = function (policies, assignments) {
+        window.loadPolicyData = function (policies, assignments, error) {
+            if (error) {
+                document.getElementById('tblPoliciesBody').innerHTML = '<tr><td colspan="5" style="color:red; font-weight:bold;">Error Loading Policies: ' + error + '</td></tr>';
+                return;
+            }
             _policies = policies || [];
             _assignments = assignments || [];
             renderPolicies();

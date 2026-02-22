@@ -731,12 +731,12 @@
   }
   parent.pluginHandler.scripttask.policyData = function (message) {
     if (window.policyWindow && !window.policyWindow.closed && typeof window.policyWindow.loadPolicyData === 'function') {
-      window.policyWindow.loadPolicyData(message.event.policies, message.event.assignments);
+      window.policyWindow.loadPolicyData(message.event.policies, message.event.assignments, message.event.error);
     }
   }
   parent.pluginHandler.scripttask.smtpData = function (message) {
     if (window.smtpWindow && !window.smtpWindow.closed && typeof window.smtpWindow.loadSmtpData === 'function') {
-      window.smtpWindow.loadSmtpData(message.event.config);
+      window.smtpWindow.loadSmtpData(message.event.config, message.event.error);
     }
   }
   parent.pluginHandler.scripttask.complianceStateData = function (message) {

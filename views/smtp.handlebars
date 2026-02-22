@@ -44,7 +44,8 @@
 </div>
 
 <script>
-    function loadSmtpData(config) {
+    function loadSmtpData(config, error) {
+        if (error) { alert("Error loading SMTP config: " + error); return; }
         if (!config) config = {};
         document.getElementById('sHost').value = config.host || '';
         document.getElementById('sPort').value = config.port || '';

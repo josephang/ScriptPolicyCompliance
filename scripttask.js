@@ -865,7 +865,13 @@ module.exports.scripttask = function (parent) {
                 obj.db.getPolicies().then(policies => {
                     obj.db.getAllPolicyAssignments().then(assignments => {
                         myparent.send(JSON.stringify({ action: 'plugin', plugin: 'scripttask', pluginaction: 'policyData', policies: policies, assignments: assignments }));
+                    }).catch(e => {
+                        myparent.send(JSON.stringify({ action: 'plugin', plugin: 'scripttask', pluginaction: 'policyData', error: "Assignments Error: " + String(e) }));
+                        console.log("CompliancePowerScript ERROR getAllPolicyAssignments:", e);
                     });
+                }).catch(e => {
+                    myparent.send(JSON.stringify({ action: 'plugin', plugin: 'scripttask', pluginaction: 'policyData', error: "Policies Error: " + String(e) }));
+                    console.log("CompliancePowerScript ERROR getPolicies:", e);
                 });
                 break;
             case 'savePolicy':
@@ -901,6 +907,9 @@ module.exports.scripttask = function (parent) {
             case 'getSmtpConfig':
                 obj.db.getSmtpConfig().then(config => {
                     myparent.send(JSON.stringify({ action: 'plugin', plugin: 'scripttask', pluginaction: 'smtpData', config: config[0] || {} }));
+                }).catch(e => {
+                    myparent.send(JSON.stringify({ action: 'plugin', plugin: 'scripttask', pluginaction: 'smtpData', error: String(e) }));
+                    console.log("CompliancePowerScript ERROR getSmtpConfig:", e);
                 });
                 break;
             case 'saveSmtpConfig':
