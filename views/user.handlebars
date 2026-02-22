@@ -232,6 +232,7 @@
       <span onclick="goNewFolder();">New Folder</span>
       <span onclick="goDownload();">Download</span>
       <span onclick="goRun();">Run</span>
+      <span onclick="goScripts();">Scripts</span>
       <span onclick="goPolicy();">Compliance Policies</span>
       <span onclick="goSmtp();">Email Notifications</span>
     </div>
@@ -340,10 +341,530 @@
         </div>
 
       </div>
+    
+    <div id="policy_endpoints" style="display:none; background-color:#036; color:white; padding:20px; min-height:100%; overflow:auto;">
+        <style>
+        #policy_endpoints {
+            font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+            color: white;
+            background-color: #036;
+            margin: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            border: 1px solid #777;
+            padding: 5px;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: #555;
+            text-align: left;
+        }
+
+        button,
+        input,
+        select {
+            padding: 5px;
+            font-family: inherit;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        .panel {
+            background-color: #224;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #555;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        h2,
+        h3 {
+            margin-top: 0;
+        }
+
+        .flink {
+            color: #8af;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .form-row {
+            margin-bottom: 10px;
+        }
+
+        .form-row label {
+            display: inline-block;
+            width: 150px;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+        }
+
+        .col {
+            flex: 1;
+        }
+    </style>
+        <div class="main-container">
+        
+
+        <div class="col" id="colList">
+            <h2>Compliance Policies</h2>
+            <div class="panel">
+                <button onclick="showEditForm(null);">+ Create New Policy</button>
+                <table id="tblPolicies">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Enabled</th>
+                            <th>Detect Script</th>
+                            <th>Remediate Script</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblPoliciesBody">
+                        <tr>
+                            <td colspan="5">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="panel" id="pnlAssignments" style="display:none;">
+                <h3>Assignments for: <span id="lblAssignedPolicyName"></span></h3>
+                <button onclick="showAssignForm();" id="btnAssign">+ New Assignment</button>
+                <table id="tblAssignments">
+                    <thead>
+                        <tr>
+                            <th>Target Type</th>
+                            <th>Target Name</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblAssignmentsBody">
+                        <tr>
+                            <td colspan="3">None</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col hidden" id="colEdit">
+            <h2 id="editTitle">Edit Policy</h2>
+            <div class="panel">
+                <input type="hidden" id="pId" value="" />
+                <div class="form-row">
+                    <label>Name:</label>
+                    <input type="text" id="pName" style="width: 250px;" />
+                </div>
+                <div class="form-row">
+                    <label>Enabled:</label>
+                    <input type="checkbox" id="pEnabled" checked />
+                </div>
+                <div class="form-row">
+                    <label
+                        title="Detection scripts MUST exit with code 0 if the device is Compliant, and any non-zero exit code (e.g. 1) if it is Non-Compliant.">Detect
+                        Script ℹ️:</label>
+                    <select id="pDetect" style="width: 250px;">
+                        <option value="">(None)</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Remediate Script:</label>
+                    <select id="pRemediate" style="width: 250px;">
+                        <option value="">(None optional)</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Cooldown (Mins):</label>
+                    <input type="number" id="pCooldown" value="60" style="width: 80px;" />
+                    <small>Min time between runs per device</small>
+                </div>
+                <div class="form-row">
+                    <label>Notify on Failure:</label>
+                    <input type="checkbox" id="pNotify" checked />
+                </div>
+                <div style="margin-top: 15px;">
+                    <button onclick="savePolicy();">Save</button>
+                    <button onclick="cancelEdit();">Cancel</button>
+                    <button onclick="testNotification();" id="btnTestNotify"
+                        style="margin-left:20px; background:#47a; color:#fff; border:1px solid #7af;">Test Alert
+                        Email</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col hidden" id="colAssign">
+            <h2 id="assignTitle">Assign Policy</h2>
+            <div class="panel">
+                <div class="form-row">
+                    <label>Target Type:</label>
+                    <select id="aTargetType" onchange="updateTargetList();">
+                        <option value="node">Individual Computer</option>
+                        <option value="mesh">Device Group (Mesh)</option>
+                        <option value="tag">Device Tag</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Target:</label>
+                    <select id="aTargetId" style="width: 250px;"></select>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button onclick="saveAssignment();">Assign</button>
+                    <button onclick="cancelAssign();">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+    
+        </div>
     </div>
+    
+    <div id="smtp_endpoints" style="display:none; background-color:#fff; min-height:100%; overflow:auto;">
+        <div id="smtpPanel" style="padding: 20px; font-family: Arial, sans-serif;">
+    <h2>Email Notifications (SMTP Configuration)</h2>
+    <p>Configure custom SMTP settings for the Compliance Engine. If left blank, the plugin will attempt to use the
+        MeshCentral server's core SMTP config.</p>
+
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">Host/Server:</label>
+        <input type="text" id="sHost" style="width: 250px;" placeholder="smtp.example.com" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">Port:</label>
+        <input type="number" id="sPort" style="width: 80px;" placeholder="587" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">Username:</label>
+        <input type="text" id="sUser" style="width: 250px;" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">Password:</label>
+        <input type="password" id="sPass" style="width: 250px;" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">From Address:</label>
+        <input type="text" id="sFrom" style="width: 250px;" placeholder="noreply@example.com" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">To Address:</label>
+        <input type="text" id="sTo" style="width: 250px;" placeholder="admin@example.com" />
+    </div>
+    <div class="form-row" style="margin-bottom: 10px;">
+        <label style="display:inline-block; width:120px;">Enable TLS/SSL:</label>
+        <input type="checkbox" id="sTls" />
+    </div>
+
+    <div style="margin-top: 20px;">
+        <button onclick="saveSmtp();"
+            style="padding: 5px 15px; background: #007bff; color: white; border: none; cursor: pointer;">Save
+            Settings</button>
+        <button onclick="window.close();" style="padding: 5px 15px; margin-left: 10px; cursor: pointer;">Close</button>
+        <button onclick="testSmtp();"
+            style="padding: 5px 15px; margin-left: 10px; background: #28a745; color: white; border: none; cursor: pointer;">Test
+            Email</button>
+    </div>
+</div>
+
+<script>
+    </div>
+</div>
   </div>
 </body>
 <script type="text/javascript">
+
+  
+        var _policies = [];
+        var _assignments = [];
+        var _currentPolicyId = null;
+
+        function doOnLoadPolicy() {
+            if (!window.opener || !parent || !parent.meshserver) {
+                document.body.innerHTML = "<h3>Error: Unable to connect to MeshCentral Server.</h3>";
+                return;
+            }
+            populateScriptDropdowns();
+            refreshData();
+        }
+
+        function refreshData() {
+            parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getPolicies' });
+        }
+
+        // Called by window.opener
+        function loadPolicyData function (policies, assignments, error) {
+            if (error) {
+                document.getElementById('tblPoliciesBody').innerHTML = '<tr><td colspan="5" style="color:red; font-weight:bold;">Error Loading Policies: ' + error + '</td></tr>';
+                return;
+            }
+            _policies = policies || [];
+            _assignments = assignments || [];
+            renderPolicies();
+            if (_currentPolicyId) {
+                viewAssignments(_currentPolicyId);
+            }
+        };
+
+        function populateScriptDropdowns() {
+            var selD = document.getElementById('pDetect');
+            var selR = document.getElementById('pRemediate');
+            selD.innerHTML = '<option value="">(Select Detection Script)</option>';
+            selR.innerHTML = '<option value="">(None - Detection Only)</option>';
+
+            var sTree = scriptTree || [];
+            sTree.forEach(function (s) {
+                if (s.type === 'script') {
+                    selD.options.add(new Option(s.name, s._id));
+                    selR.options.add(new Option(s.name, s._id));
+                }
+            });
+        }
+
+        function getScriptName(id) {
+            if (!id) return "None";
+            var sTree = scriptTree || [];
+            var s = sTree.find(x => x._id === id);
+            return s ? s.name : "Unknown (" + id + ")";
+        }
+
+        function renderPolicies() {
+            var tbody = document.getElementById('tblPoliciesBody');
+            tbody.innerHTML = '';
+            if (_policies.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No policies found.</td></tr>';
+                return;
+            }
+
+            _policies.forEach(function (p) {
+                var tr = document.createElement('tr');
+                tr.innerHTML = `
+            <td><b>${p.name}</b><br/><small>v${p.version || 1}</small></td>
+            <td>${p.enabled ? 'Yes' : 'No'}</td>
+            <td>${getScriptName(p.detectScriptId)}</td>
+            <td>${getScriptName(p.remediateScriptId)}</td>
+            <td>
+                <span class="flink" onclick="viewAssignments('${p._id}', '${p.name.replace(/'/g, "\\'")}');">Assignments</span> |
+                <span class="flink" onclick="showEditForm('${p._id}');">Edit</span> |
+                <span class="flink" style="color:#f88" onclick="deletePolicy('${p._id}');">Delete</span>
+            </td>
+        `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function showEditForm(id) {
+            document.getElementById('colEdit').classList.remove('hidden');
+            document.getElementById('colAssign').classList.add('hidden');
+
+            if (id) {
+                var p = _policies.find(x => x._id === id);
+                document.getElementById('editTitle').innerText = 'Edit Policy';
+                document.getElementById('pId').value = p._id;
+                document.getElementById('pName').value = p.name;
+                document.getElementById('pEnabled').checked = p.enabled;
+                document.getElementById('pDetect').value = p.detectScriptId || '';
+                document.getElementById('pRemediate').value = p.remediateScriptId || '';
+                document.getElementById('pCooldown').value = p.cooldownMinutes || 60;
+                document.getElementById('pNotify').checked = p.notifyOnFail;
+            } else {
+                document.getElementById('editTitle').innerText = 'Create New Policy';
+                document.getElementById('pId').value = '';
+                document.getElementById('pName').value = 'New Compliance Policy';
+                document.getElementById('pEnabled').checked = true;
+                document.getElementById('pDetect').value = '';
+                document.getElementById('pRemediate').value = '';
+                document.getElementById('pCooldown').value = 60;
+                document.getElementById('pNotify').checked = true;
+            }
+        }
+
+        function cancelEdit() {
+            document.getElementById('colEdit').classList.add('hidden');
+        }
+
+        function savePolicy() {
+            if (!document.getElementById('pDetect').value) {
+                alert("A Detect Script is required!");
+                return;
+            }
+            var p = {
+                name: document.getElementById('pName').value,
+                enabled: document.getElementById('pEnabled').checked,
+                detectScriptId: document.getElementById('pDetect').value,
+                remediateScriptId: document.getElementById('pRemediate').value,
+                cooldownMinutes: parseInt(document.getElementById('pCooldown').value) || 60,
+                notifyOnFail: document.getElementById('pNotify').checked
+            };
+            var id = document.getElementById('pId').value;
+            if (id) p._id = id;
+
+            parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'savePolicy', policy: p });
+            cancelEdit();
+        }
+
+        function deletePolicy(id) {
+            if (confirm('Are you sure you want to delete this policy? Assignments and state history will also be removed.')) {
+                parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'deletePolicy', id: id });
+                if (_currentPolicyId === id) { document.getElementById('pnlAssignments').style.display = 'none'; _currentPolicyId = null; }
+            }
+        }
+
+        function viewAssignments(id, name) {
+            _currentPolicyId = id;
+            if (name) document.getElementById('lblAssignedPolicyName').innerText = name;
+            document.getElementById('pnlAssignments').style.display = 'block';
+            document.getElementById('colAssign').classList.add('hidden');
+
+            var tbody = document.getElementById('tblAssignmentsBody');
+            tbody.innerHTML = '';
+
+            var myAssigns = _assignments.filter(x => x.policyId === id);
+            if (myAssigns.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3">No assignments. Policy is inactive.</td></tr>';
+                return;
+            }
+
+            myAssigns.forEach(function (a) {
+                var tr = document.createElement('tr');
+                var targetName = a.targetId;
+                if (a.targetType === 'node' && parent.nodes) {
+                    var n = parent.nodes.find(x => x._id === a.targetId);
+                    if (n) targetName = n.name;
+                } else if (a.targetType === 'mesh' && parent.meshes) {
+                    var m = parent.meshes[a.targetId];
+                    if (m) targetName = m.name;
+                }
+
+                tr.innerHTML = `
+            <td>${a.targetType}</td>
+            <td>${targetName}</td>
+            <td><span class="flink" style="color:#f88" onclick="deleteAssignment('${a._id}');">Remove</span></td>
+        `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function showAssignForm() {
+            if (!_currentPolicyId) return;
+            document.getElementById('colAssign').classList.remove('hidden');
+            updateTargetList();
+        }
+
+        function cancelAssign() {
+            document.getElementById('colAssign').classList.add('hidden');
+        }
+
+        function testNotification() {
+            parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'testComplianceNotify' });
+            alert("A test notification command has been sent to the MeshCentral server. If email is configured, it should arrive shortly.");
+        }
+
+        function updateTargetList() {
+            var type = document.getElementById('aTargetType').value;
+            var sel = document.getElementById('aTargetId');
+            sel.innerHTML = '';
+
+            if (type === 'node') {
+                var nodes = parent.nodes || [];
+                nodes.forEach(function (n) {
+                    if (n.mtype === 2) sel.options.add(new Option(n.name, n._id));
+                });
+            } else if (type === 'mesh') {
+                var meshes = parent.meshes || {};
+                for (var key in meshes) {
+                    if (meshes[key].mtype === 2) sel.options.add(new Option(meshes[key].name, key));
+                }
+            } else if (type === 'tag') {
+                sel.options.add(new Option("Please enter the precise Tag string here ->", ""));
+                // Meshcentral tags are stored differently, usually we rely on the backend to parse them
+                // We will just let the user type out the tag name manually, or prompt them:
+                var tagName = prompt("Enter the exact name of the Device Tag to assign this policy to:");
+                if (tagName) {
+                    sel.options.add(new Option("Tag: " + tagName, tagName));
+                    sel.value = tagName;
+                }
+            }
+        }
+
+        function saveAssignment() {
+            var typ = document.getElementById('aTargetType').value;
+            var tid = document.getElementById('aTargetId').value;
+            if (!tid) return;
+
+            var a = {
+                policyId: _currentPolicyId,
+                targetType: typ,
+                targetId: tid
+            };
+            parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'savePolicyAssignment', assignment: a });
+            cancelAssign();
+        }
+
+        function deleteAssignment(id) {
+            if (confirm('Remove assignment?')) {
+                parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'deletePolicyAssignment', id: id });
+            }
+        }
+    
+  
+  
+    function loadSmtpData(config, error) {
+        if (error) { alert("Error loading SMTP config: " + error); return; }
+        if (!config) config = {};
+        document.getElementById('sHost').value = config.host || '';
+        document.getElementById('sPort').value = config.port || '';
+        document.getElementById('sUser').value = config.user || '';
+        document.getElementById('sPass').value = config.pass || '';
+        document.getElementById('sFrom').value = config.from || '';
+        document.getElementById('sTo').value = config.toAddress || '';
+        document.getElementById('sTls').checked = config.tls || config.tlsstrict || false;
+    }
+
+    function saveSmtp() {
+        var conf = {
+            host: document.getElementById('sHost').value,
+            port: parseInt(document.getElementById('sPort').value) || 587,
+            user: document.getElementById('sUser').value,
+            pass: document.getElementById('sPass').value,
+            from: document.getElementById('sFrom').value,
+            toAddress: document.getElementById('sTo').value,
+            tls: document.getElementById('sTls').checked
+        };
+        parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'saveSmtpConfig', config: conf });
+        alert("SMTP Settings Saved!");
+        goScripts();
+    }
+
+    function testSmtp() {
+        parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'testComplianceNotify' });
+        alert("A test email has been dispatched. If settings are correct, it should arrive momentarily.");
+    }
+
+    
+
+  
+  function goScripts() {
+    document.getElementById('policy_endpoints').style.display = 'none';
+    document.getElementById('smtp_endpoints').style.display = 'none';
+    document.getElementById('scripts_endpoints').style.display = 'block';
+  }
+
   var scriptTree = {{{ scriptTree }}};
   var elementDragged = false;
   var dragCounter = 0;
@@ -512,13 +1033,17 @@
   }
 
   function goPolicy() {
-    window.policyWindow = window.open('/pluginadmin.ashx?pin=scripttask&user=1&policy=1', 'policy', "width=900,height=700");
-    window.policyWindow.focus();
+    document.getElementById('scripts_endpoints').style.display = 'none';
+    document.getElementById('smtp_endpoints').style.display = 'none';
+    document.getElementById('policy_endpoints').style.display = 'block';
+    doOnLoadPolicy();
   }
 
   function goSmtp() {
-    window.smtpWindow = window.open('/pluginadmin.ashx?pin=scripttask&user=1&smtp=1', 'smtp', "width=600,height=550");
-    window.smtpWindow.focus();
+    document.getElementById('scripts_endpoints').style.display = 'none';
+    document.getElementById('policy_endpoints').style.display = 'none';
+    document.getElementById('smtp_endpoints').style.display = 'block';
+    parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getSmtpConfig' });
   }
 
   var coll = document.getElementsByClassName("infoBar");
@@ -730,14 +1255,12 @@
     }
   }
   parent.pluginHandler.scripttask.policyData = function (message) {
-    if (window.policyWindow && !window.policyWindow.closed && typeof window.policyWindow.loadPolicyData === 'function') {
-      window.policyWindow.loadPolicyData(message.event.policies, message.event.assignments, message.event.error);
-    }
+    loadPolicyData(message.event.policies, message.event.assignments, message.event.error);
+  }
   }
   parent.pluginHandler.scripttask.smtpData = function (message) {
-    if (window.smtpWindow && !window.smtpWindow.closed && typeof window.smtpWindow.loadSmtpData === 'function') {
-      window.smtpWindow.loadSmtpData(message.event.config, message.event.error);
-    }
+    loadSmtpData(message.event.config, message.event.error);
+  }
   }
   parent.pluginHandler.scripttask.complianceStateData = function (message) {
     var state = message.event.state || [];
