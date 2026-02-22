@@ -95,9 +95,13 @@ module.exports.scripttask = function (parent) {
         var nodeId = agent.dbNodeKey;
         var meshId = agent.dbMeshKey || null;
 
-        // Extract public IP (format: "1.2.3.4:port" or "::ffff:1.2.3.4:port")
+        // Extract public IP (IPv4 '1.2.3.4:port', IPv6 '[2001::1]:port' or raw '2001::1')
         var rawAddr = String(agent.remoteaddrport || '');
-        var ip = rawAddr.replace(/^::ffff:/, '').replace(/:\\d+$/, '') || 'unknown';
+        var s = rawAddr.replace(/^::ffff:/, '');
+        var ip = s;
+        if (s.includes('[') && s.includes(']')) ip = s.substring(s.indexOf('[') + 1, s.indexOf(']'));
+        else if (s.split(':').length === 2) ip = s.split(':')[0];
+        ip = ip || 'unknown';
 
         // Record IP only if changed
         try {

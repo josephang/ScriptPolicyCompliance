@@ -1457,7 +1457,14 @@
           else if (n.ip) raw = n.ip;
           else if (n.address) raw = n.address;
           if (raw && typeof raw === 'string') {
-            return raw.replace(/^::ffff:/, '').replace(/:\\d+$/, '');
+            var s = raw.replace(/^::ffff:/, '');
+            if (s.includes('[') && s.includes(']')) {
+              return s.substring(s.indexOf('[') + 1, s.indexOf(']'));
+            }
+            if (s.split(':').length === 2) {
+              return s.split(':')[0];
+            }
+            return s;
           }
         }
       }
