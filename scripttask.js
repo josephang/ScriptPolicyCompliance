@@ -1449,12 +1449,30 @@ module.exports.scripttask = function (parent) {
                                 previousPower = curr.state;
                             } else if (previousPower !== curr.state) { // Delta element
                                 // If this event is of a short duration (2 minutes or less), skip it.
-                                if ((j + 1 < pEvents.length) && ((pEvents[j + 1].time - curr.time) < 120)) continue;
-                                CleanEvents.push(curr);
+                                var isShort = (j + 1 < pEvents.length) && ((pEvents[j + 1].time - curr.time) < 120);
+                                if (isShort) {
+                                    previousPower = curr.state;
+                                    continue;
+                                }
+
+                                if (CleanEvents[CleanEvents.length - 1].state !== curr.state) {
+                                    CleanEvents.push(curr);
+                                }
+                                previousPower = curr.state;
+                            } else {
                                 previousPower = curr.state;
                             }
                         }
-                        pEvents = CleanEvents;
+
+                        // Final coalescence run to cleanly patch any logical gaps from dropped flaps
+                        var FinalEvents = [];
+                        for (var i = 0; i < CleanEvents.length; i++) {
+                            if (FinalEvents.length > 0 && FinalEvents[FinalEvents.length - 1].state === CleanEvents[i].state) {
+                                continue;
+                            }
+                            FinalEvents.push(CleanEvents[i]);
+                        }
+                        pEvents = FinalEvents;
 
                         // Pre-calculate duration for each segment (seconds until next event)
                         for (var i = 0; i < pEvents.length; i++) {
