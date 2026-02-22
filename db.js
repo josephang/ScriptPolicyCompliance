@@ -360,35 +360,45 @@ module.exports.CreateDB = function (meshserver) {
         });
     } else if (meshserver.args.mysql || meshserver.args.mariadb) { // use MySQL/MariaDB
         var mysqlConfig = meshserver.args.mysql || meshserver.args.mariadb;
-        var mysql = require('mysql');
-        // If config is just true, we might need settings from config.json
-        if (typeof mysqlConfig !== 'object' && meshserver.config && meshserver.config.settings) {
-            mysqlConfig = meshserver.config.settings.mysql || meshserver.config.settings.mariadb;
+        var mysql;
+        try {
+            mysql = require('mysql');
+        } catch (e) {
+            console.log("CompliancePowerScript ERROR: 'mysql' module not found! Falling back to NeDB. To use MySQL, run 'npm install mysql' in the plugins/scripttask folder.");
         }
-        var pool = mysql.createPool(mysqlConfig);
-        var NEMysql = require(__dirname + '/nemysql.js');
-        obj.scriptFile = new NEMysql(pool);
-        formatId = function (id) { return id; };
-        obj.initFunctions();
-    } else { // use NeDb
-        try { Datastore = require('@seald-io/nedb'); } catch (ex) { } // This is the NeDB with Node 23 support.
-        if (Datastore == null) {
-            try { Datastore = require('@yetzt/nedb'); } catch (ex) { } // This is the NeDB with fixed security dependencies.
-            if (Datastore == null) { Datastore = require('nedb'); } // So not to break any existing installations, if the old NeDB is present, use it.
+
+        if (mysql) {
+            // If config is just true, we might need settings from config.json
+            if (typeof mysqlConfig !== 'object' && meshserver.config && meshserver.config.settings) {
+                mysqlConfig = meshserver.config.settings.mysql || meshserver.config.settings.mariadb;
+            }
+            var pool = mysql.createPool(mysqlConfig);
+            var NEMysql = require(__dirname + '/nemysql.js');
+            obj.scriptFile = new NEMysql(pool);
+            formatId = function (id) { return id; };
+            obj.initFunctions();
+            return obj; // Terminate successfully here instead of falling through to NeDB
         }
-        if (obj.scriptFilex == null) {
-            obj.scriptFilex = new Datastore({ filename: meshserver.getConfigFilePath('plugin-scripttask.db'), autoload: true });
-            obj.scriptFilex.setAutocompactionInterval(40000);
-            obj.scriptFilex.ensureIndex({ fieldName: 'name' });
-            obj.scriptFilex.ensureIndex({ fieldName: 'path' });
-            obj.scriptFilex.ensureIndex({ fieldName: 'queueTime' });
-            obj.scriptFilex.ensureIndex({ fieldName: 'node' });
-            obj.scriptFilex.ensureIndex({ fieldName: 'scriptId' });
-        }
-        obj.scriptFile = new NEMongo(obj.scriptFilex);
-        formatId = function (id) { return id; };
-        obj.initFunctions();
     }
+
+    // If we reach here, either FileDB was requested, or MySQL/MongoDB failed to load their dependencies
+    try { Datastore = require('@seald-io/nedb'); } catch (ex) { } // This is the NeDB with Node 23 support.
+    if (Datastore == null) {
+        try { Datastore = require('@yetzt/nedb'); } catch (ex) { } // This is the NeDB with fixed security dependencies.
+        if (Datastore == null) { Datastore = require('nedb'); } // So not to break any existing installations, if the old NeDB is present, use it.
+    }
+    if (obj.scriptFilex == null) {
+        obj.scriptFilex = new Datastore({ filename: meshserver.getConfigFilePath('plugin-scripttask.db'), autoload: true });
+        obj.scriptFilex.setAutocompactionInterval(40000);
+        obj.scriptFilex.ensureIndex({ fieldName: 'name' });
+        obj.scriptFilex.ensureIndex({ fieldName: 'path' });
+        obj.scriptFilex.ensureIndex({ fieldName: 'queueTime' });
+        obj.scriptFilex.ensureIndex({ fieldName: 'node' });
+        obj.scriptFilex.ensureIndex({ fieldName: 'scriptId' });
+    }
+    obj.scriptFile = new NEMongo(obj.scriptFilex);
+    formatId = function (id) { return id; };
+    obj.initFunctions();
 
     return obj;
 }
