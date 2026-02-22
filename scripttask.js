@@ -856,11 +856,11 @@ module.exports.scripttask = function (parent) {
                 if (command.policy._id) {
                     obj.db.updatePolicy(command.policy._id, command.policy).then(() => {
                         obj.serveraction({ pluginaction: 'getPolicies' }, myparent, grandparent);
-                    });
+                    }).catch(err => console.log('CompliancePowerScript ERROR updating policy:', err));
                 } else {
                     obj.db.addPolicy(command.policy).then(() => {
                         obj.serveraction({ pluginaction: 'getPolicies' }, myparent, grandparent);
-                    });
+                    }).catch(err => console.log('CompliancePowerScript ERROR adding policy:', err));
                 }
                 break;
             case 'deletePolicy':

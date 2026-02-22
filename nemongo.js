@@ -18,96 +18,102 @@ class NEMongo {
         this._sort = null;
         return this;
     }
-    
+
     find(args, proj) {
         this._find = args;
         this._proj = proj;
         return this;
     }
-    
+
     project(args) {
         this._proj = args;
-        
+
         return this;
     }
-    
+
     sort(args) {
         this._sort = args;
         return this;
     }
-    
+
     limit(limit) {
         this._limit = limit;
         return this;
     }
-    
+
     toArray(callback) {
-        var self = this; 
-        return new Promise(function(resolve, reject) {
-            self.nedb.find( self._find, self._proj ).sort(self._sort).limit(self._limit).exec((err, docs) => {
-              if (callback != null && typeof callback == 'function') callback(err, docs);
-              if (err != null) reject(err);
-              if (callback != null && typeof callback == 'function') callback(err, docs);
-              else resolve(docs);
+        var self = this;
+        return new Promise(function (resolve, reject) {
+            var cursor = self.nedb.find(self._find, self._proj);
+            if (self._sort) cursor = cursor.sort(self._sort);
+            if (self._limit) cursor = cursor.limit(self._limit);
+
+            cursor.exec((err, docs) => {
+                if (err) {
+                    if (callback != null && typeof callback == 'function') callback(err, null);
+                    return reject(err);
+                }
+                if (callback != null && typeof callback == 'function') callback(null, docs);
+                resolve(docs);
             });
         });
     }
-    
+
     insertOne(args, options) {
         var self = this;
-        return new Promise(function(resolve, reject) {
-            self.nedb.insert(args, function(err, newDoc) { 
-                if (err) reject(err);
-                newDoc.insertedId = newDoc._id;
-                resolve({ insertedId: newDoc._id });
+        return new Promise(function (resolve, reject) {
+            self.nedb.insert(args, function (err, newDoc) {
+                if (err) return reject(err);
+                if (newDoc) newDoc.insertedId = newDoc._id;
+                resolve({ insertedId: newDoc ? newDoc._id : null });
             });
         });
     }
-    
+
     deleteOne(filter, options) {
         var self = this;
         self._find = filter;
-        return new Promise(function(resolve, reject) {
-            self.nedb.remove(self._find, { multi: false }, function(err, numRemoved) { 
-                if (err) reject(err);
-                resolve( { deletedCount: numRemoved } );
+        return new Promise(function (resolve, reject) {
+            self.nedb.remove(self._find, { multi: false }, function (err, numRemoved) {
+                if (err) return reject(err);
+                resolve({ deletedCount: numRemoved });
             });
         });
     }
-    
+
     deleteMany(filter, options) {
         var self = this;
         self._find = filter;
-        return new Promise(function(resolve, reject) {
-            self.nedb.remove(self._find, { multi: true }, function(err, numRemoved) { 
-                if (err) reject(err);
-                resolve( { deletedCount: numRemoved } );
+        return new Promise(function (resolve, reject) {
+            self.nedb.remove(self._find, { multi: true }, function (err, numRemoved) {
+                if (err) return reject(err);
+                resolve({ deletedCount: numRemoved });
             });
         });
     }
-    
+
     updateOne(filter, update, options) {
         var self = this;
         self._find = filter;
         if (options == null) options = {};
         if (options.upsert == null) options.upsert = false;
-        return new Promise(function(resolve, reject) {
-            self.nedb.update(self._find, update, { multi: false, upsert: options.upsert }, function(err, numAffected, affectedDoc) { 
-                if (err) reject(err);
+        return new Promise(function (resolve, reject) {
+            self.nedb.update(self._find, update, { multi: false, upsert: options.upsert }, function (err, numAffected, affectedDoc) {
+                if (err) return reject(err);
                 var retObj = { matchedCount: numAffected, modifiedCount: numAffected };
                 if (affectedDoc != null) retObj.upsertedId = affectedDoc._id;
                 resolve(retObj);
             });
         });
     }
-    
+
     updateMany(filter, update, options) {
         var self = this;
         self._find = filter;
         if (options == null) options = {};
         if (options.upsert == null) options.upsert = false;
-        return new Promise(function(resolve, reject) {
-            self.nedb.update(self._find, update, { multi: true, upsert: options.upsert }, function(err, numAffected, affectedDocs) { 
+        return new Promise(function (resolve, reject) {
+            self.nedb.update(self._find, update, { multi: true, upsert: options.upsert }, function (err, numAffected, affectedDocs) {
                 if (err) reject(err);
                 var retObj = { matchedCount: numAffected, modifiedCount: numAffected };
                 if (affectedDocs != null) retObj.upsertedId = affectedDocs[0]._id;
@@ -115,7 +121,7 @@ class NEMongo {
             });
         });
     }
-    
+
 }
 
 module.exports = NEMongo;
