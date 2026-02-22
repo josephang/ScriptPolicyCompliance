@@ -577,8 +577,6 @@
           <button onclick="saveSmtp();"
             style="padding: 5px 15px; background: #007bff; color: white; border: none; cursor: pointer;">Save
             Settings</button>
-          <button onclick="window.close();"
-            style="padding: 5px 15px; margin-left: 10px; cursor: pointer;">Close</button>
           <button onclick="testSmtp();"
             style="padding: 5px 15px; margin-left: 10px; background: #28a745; color: white; border: none; cursor: pointer;">Test
             Email</button>
@@ -1169,13 +1167,13 @@
       }
     }
     parent.pluginHandler.scripttask.policyData = function (message) {
-      loadPolicyData(message.event.policies, message.event.assignments, message.event.error);
+      loadPolicyData(message.policies, message.assignments, message.error);
     }
     parent.pluginHandler.scripttask.smtpData = function (message) {
-      loadSmtpData(message.event.config, message.event.error);
+      loadSmtpData(message.config, message.error);
     }
     parent.pluginHandler.scripttask.complianceStateData = function (message) {
-      var state = message.event.state || [];
+      var state = message.state || [];
       var policyNames = {};
       // Fetch policies to map names? They are not cached in user.handlebars, maybe just request them or
       // rely on ID for now if policies aren't loaded.
