@@ -648,9 +648,6 @@
           <button onclick="goCompliance()"
             style="float:right; margin-top:-2px; padding:3px 8px; font-size:12px; cursor:pointer;">&#10227;
             Refresh</button>
-          <button onclick="forcePowerSync()"
-            style="float:right; margin-top:-2px; margin-right:8px; padding:3px 8px; font-size:12px; cursor:pointer; background:#dc3545; color:#fff; border:none; border-radius:3px;">
-            &#9889; Clear & Sync Power History</button>
         </h2>
         <div style="margin-bottom:8px; display:flex; gap:10px; align-items:center;">
           <input type="text" id="cev-search" placeholder="Search by device, description, or user..."
@@ -895,13 +892,6 @@
 
     function refreshData() {
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getPolicies' });
-    }
-
-    function forcePowerSync() {
-      if (confirm("Are you sure you want to delete all locally cached power history and re-sync from MeshCentral core? This may take a few seconds.")) {
-        parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'forcePowerSync' });
-        alert("Command sent. The plugin is clearing history and syncing in the background. Please refresh in a few moments.");
-      }
     }
 
     function loadPolicyData(policies, assignments, error) {
