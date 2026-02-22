@@ -644,6 +644,9 @@
           <input type="text" id="cev-search" placeholder="Search by device, description, or user..."
             oninput="filterComplianceOverview()"
             style="padding:5px 8px; border:1px solid #ccc; border-radius:3px; width:240px; font-size:13px;">
+          <button onclick="complianceSearchCurrent()"
+            style="padding:4px 8px; font-size:12px; cursor:pointer; background:#17a2b8; color:#fff; border:none; border-radius:3px;">Find
+            Current</button>
         </div>
         <div class="cev-panel">
           <table id="cev-overview-tbl">
@@ -1555,6 +1558,16 @@
       });
       renderComplianceOverview(complianceOverviewData);
     };
+
+    function complianceSearchCurrent() {
+      if (parent && parent.currentNode && parent.currentNode.name) {
+        var s = document.getElementById('cev-search');
+        if (s) {
+          s.value = parent.currentNode.name;
+          filterComplianceOverview();
+        }
+      }
+    }
 
     function filterComplianceOverview() {
       var q = document.getElementById('cev-search').value.toLowerCase();
