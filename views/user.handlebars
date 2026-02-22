@@ -763,8 +763,8 @@
             </thead>
             <tbody id="cev-ip-tbl"></tbody>
           </table>
-          <div class="cev-section-title" style="margin-top:14px;">&#128100; Last User History <button
-              onclick="downloadSpecificTableCSV('cev-user-tbl', 'Last User History')"
+          <div class="cev-section-title" style="margin-top:14px;">&#128100; User History <button
+              onclick="downloadSpecificTableCSV('cev-user-tbl', 'User History')"
               style="float:right; font-size:11px; padding:2px 6px; cursor:pointer; background:#17a2b8; color:#fff; border:none; border-radius:3px;">&#8681;
               CSV</button></div>
           <table>
@@ -1625,6 +1625,13 @@
         if (currIp) {
           var ipLnk = '<a href="https://iplocation.com/?ip=' + encodeURIComponent(currIp) + '" target="_blank" rel="noopener" style="color:#0066cc;">' + currIp + '</a>';
           ipHtml = '<tr><td><i style="color:#666;">Current</i></td><td>' + ipLnk + '</td></tr>';
+        }
+      }
+
+      if (!userHtml && message.event.nodeId) {
+        var currUsr = getNodeLastUser(message.event.nodeId);
+        if (currUsr) {
+          userHtml = '<tr><td><i style="color:#666;">Current</i></td><td>' + currUsr + '</td></tr>';
         }
       }
 

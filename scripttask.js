@@ -97,15 +97,17 @@ module.exports.scripttask = function (parent) {
 
         // Extract public IP (format: "1.2.3.4:port" or "::ffff:1.2.3.4:port")
         var rawAddr = agent.remoteaddrport || '';
-        var ip = rawAddr.replace(/^::ffff:/, '').replace(/:\d+$/, '') || 'unknown';
+        var ip = rawAddr.replace(/^::ffff:/, '').replace(/:\\d+$/, '') || 'unknown';
 
         // Record IP only if changed
-        var lastIp = await obj.db.getLastDeviceEvent(nodeId, 'ipSeen');
-        if (!lastIp.length || lastIp[0].data.ip !== ip) {
-            await obj.db.addDeviceEvent(nodeId, meshId, 'ipSeen', { ip: ip });
-        }
+        try {
+            var lastIp = await obj.db.getLastDeviceEvent(nodeId, 'ipSeen');
+            if (!lastIp.length || lastIp[0].data.ip !== ip) {
+                await obj.db.addDeviceEvent(nodeId, meshId, 'ipSeen', { ip: ip });
+            }
+        } catch (e) { }
 
-        // Record boot time and last user from node record
+        // Record boot time and last user from node record (includes db check)
         await obj.recordNodeInfoIfChanged(nodeId, meshId);
     };
 
