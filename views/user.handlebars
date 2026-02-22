@@ -824,6 +824,16 @@
               &raquo;</button>
             <span id="cev-pwr-count" style="margin-left:auto; color:#999;"></span>
           </div>
+          <!-- Alert on State Change -->
+          <div
+            style="margin-bottom:8px; padding:6px 8px; background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; font-size:12px; display:flex; align-items:center; gap:8px;">
+            <span title="Sends an email when this device's power state changes">&#9993;</span>
+            <label style="cursor:pointer; user-select:none;">
+              <input type="checkbox" id="cev-pwr-alert-chk" onchange="savePwrAlertConfig()" style="margin-right:4px;">
+              Alert on State Change — email when this device's power state changes
+            </label>
+            <span id="cev-pwr-alert-status" style="color:#999; font-size:11px; margin-left:auto;"></span>
+          </div>
           <table style="width:100%;">
             <thead>
               <tr>
@@ -1723,6 +1733,12 @@
 
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getDeviceEvents', nodeId: nodeId });
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getPowerHistory', nodeId: nodeId, days: pDays });
+      parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getPowerAlertConfig', nodeId: nodeId });
+      // Reset alert checkbox while loading
+      var alertChk = document.getElementById('cev-pwr-alert-chk');
+      if (alertChk) alertChk.checked = false;
+      var alertStatus = document.getElementById('cev-pwr-alert-status');
+      if (alertStatus) alertStatus.textContent = '';
       resizeIframe();
     }
 
@@ -1730,6 +1746,7 @@
     var _pwrEvents = [];
     var _pwrPage = 0;
     var _pwrPageSize = 50;
+    var _pwrCurrentNodeId = null;
 
     function pwrStateColor(state) {
       if (state === 1) return '#28a745';
@@ -1811,11 +1828,34 @@
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
+    function savePwrAlertConfig() {
+      var chk = document.getElementById('cev-pwr-alert-chk');
+      if (!chk || !_pwrCurrentNodeId) return;
+      var alertStatus = document.getElementById('cev-pwr-alert-status');
+      if (alertStatus) alertStatus.textContent = 'Saving...';
+      parent.meshserver.send({
+        action: 'plugin', plugin: 'scripttask',
+        pluginaction: 'savePowerAlertConfig',
+        nodeId: _pwrCurrentNodeId,
+        alertOnStateChange: chk.checked
+      });
+    }
+
+    parent.pluginHandler.scripttask.powerAlertConfigData = function (message) {
+      if (!message.event || !message.event.nodeId) return;
+      var cfg = message.event.config || {};
+      var chk = document.getElementById('cev-pwr-alert-chk');
+      if (chk) chk.checked = !!(cfg.alertOnStateChange);
+      var alertStatus = document.getElementById('cev-pwr-alert-status');
+      if (alertStatus) alertStatus.textContent = cfg.alertOnStateChange ? '\u2714 Alerts on' : '';
+    };
+
     parent.pluginHandler.scripttask.powerHistory = function (message) {
       if (!message.event || !message.event.nodeId) return;
       var nodeId = message.event.nodeId;
       _pwrEvents = message.event.events || [];
       _pwrPage = 0;
+      _pwrCurrentNodeId = nodeId;
 
       if (document.getElementById('cev-detail') && document.getElementById('cev-detail').style.display !== 'block') return;
 

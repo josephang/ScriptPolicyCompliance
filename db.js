@@ -402,6 +402,16 @@ module.exports.CreateDB = function (meshserver) {
             return obj.scriptFile.deleteOne({ _id: id, type: 'complianceRetention' });
         };
 
+        // --- Power State Alert Config ---
+        obj.getPowerAlertConfig = function (nodeId) {
+            return obj.scriptFile.find({ type: 'powerAlertConfig', nodeId: nodeId }).limit(1).toArray();
+        };
+        obj.savePowerAlertConfig = function (nodeId, alertOnStateChange) {
+            return obj.scriptFile.deleteMany({ type: 'powerAlertConfig', nodeId: nodeId }).then(function () {
+                return obj.scriptFile.insertOne({ type: 'powerAlertConfig', nodeId: nodeId, alertOnStateChange: !!alertOnStateChange });
+            });
+        };
+
         obj.checkDefaults();
     };
 

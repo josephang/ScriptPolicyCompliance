@@ -116,6 +116,64 @@ module.exports.scripttask = function (parent) {
 
         // Record boot time and last user from node record (includes db check)
         await obj.recordNodeInfoIfChanged(nodeId, meshId);
+
+        // Check for power state change and alert if configured
+        try {
+            await obj.checkAndAlertPowerStateChange(nodeId, meshId, agent);
+        } catch (e) { console.log('ScriptPolicyCompliance: checkAndAlertPowerStateChange error', e); }
+    };
+
+    var _powerStateLabels = {
+        0: 'Powered Off', 1: 'Powered On', 2: 'Sleeping',
+        3: 'Hibernating', 4: 'Soft-Off', 5: 'Unknown / Connected'
+    };
+
+    obj.checkAndAlertPowerStateChange = async function (nodeId, meshId, agent) {
+        if (!obj.db) return;
+        // Check alert config
+        var cfgRows = await obj.db.getPowerAlertConfig(nodeId);
+        var cfg = cfgRows && cfgRows.length ? cfgRows[0] : null;
+        if (!cfg || !cfg.alertOnStateChange) return;
+
+        // Read current power state from MeshCentral node record
+        var nodes = await new Promise(function (resolve, reject) {
+            obj.meshServer.db.Get(nodeId, function (err, docs) {
+                if (err) reject(err); else resolve(docs || []);
+            });
+        });
+        if (!nodes.length) return;
+        var node = nodes[0];
+        // MeshCentral stores power state as node.pwr or node.powerState (numeric)
+        var currentState = (node.pwr !== undefined ? node.pwr :
+            (node.powerState !== undefined ? node.powerState : null));
+        if (currentState === null || currentState === undefined) return;
+
+        // Compare with last stored powerState event
+        var lastEvts = await obj.db.getLastDeviceEvent(nodeId, 'powerState');
+        var lastState = lastEvts.length ? lastEvts[0].data.state : null;
+
+        if (lastState === currentState) return; // no change
+
+        // State changed — record it
+        await obj.db.addDeviceEvent(nodeId, meshId, 'powerState', { state: currentState });
+
+        // Send alert email
+        var nodeName = node.name || nodeId.slice(-8);
+        var fromLabel = lastState !== null ? (_powerStateLabels[lastState] || 'State ' + lastState) : 'Unknown';
+        var toLabel = _powerStateLabels[currentState] || 'State ' + currentState;
+        var ts = new Date().toLocaleString();
+        var subject = '[Power Alert] ' + nodeName + ': ' + fromLabel + ' → ' + toLabel;
+        var body = 'Power State Change Detected\n\n' +
+            'Device: ' + nodeName + '\n' +
+            'Time:   ' + ts + '\n' +
+            'From:   ' + fromLabel + '\n' +
+            'To:     ' + toLabel + '\n';
+        // Use the existing compliance email pipeline with a shim policy object
+        try {
+            await obj.notifyComplianceFailure(body, { name: subject }, nodeId, body, null);
+        } catch (e) {
+            console.log('ScriptPolicyCompliance: power state alert email error', e);
+        }
     };
 
     obj.recordNodeInfoIfChanged = async function (nodeId, meshId) {
@@ -1155,6 +1213,20 @@ module.exports.scripttask = function (parent) {
             case 'saveExternalDownloadServer':
                 obj.db.saveExternalDownloadServer(command.config).then(() => {
                     obj.serveraction({ pluginaction: 'getExternalDownloadServer' }, myparent, grandparent);
+                });
+                break;
+            case 'getPowerAlertConfig':
+                if (!obj.db) break;
+                obj.db.getPowerAlertConfig(command.nodeId).then(function (rows) {
+                    var cfg = rows && rows.length ? rows[0] : { alertOnStateChange: false };
+                    var targets = ['*', 'server-users'];
+                    obj.meshServer.DispatchEvent(targets, obj, { nolog: true, action: 'plugin', plugin: 'scripttask', pluginaction: 'powerAlertConfigData', nodeId: command.nodeId, config: cfg });
+                });
+                break;
+            case 'savePowerAlertConfig':
+                if (!obj.db) break;
+                obj.db.savePowerAlertConfig(command.nodeId, command.alertOnStateChange).then(function () {
+                    obj.serveraction({ pluginaction: 'getPowerAlertConfig', nodeId: command.nodeId }, myparent, grandparent);
                 });
                 break;
             case 'deletePolicyAssignment':
