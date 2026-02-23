@@ -1558,6 +1558,13 @@
     // Parse WMI-style boot date (e.g. "20250221120000.000000+000" or ISO or Unix secs)
     function fmtBootTime(val) {
       if (!val) return '-';
+      // Unix timestamp (number or numeric string > 1e9)
+      var n = Number(val);
+      if (!isNaN(n) && n > 1e9) {
+        var ud = new Date(n < 1e12 ? n * 1000 : n);
+        return ud.toLocaleString() + ' (' + getTzLabel() + ')';
+      }
+
       // WMI format: YYYYMMDDHHmmss.ffffff+offset
       var wmi = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(String(val));
       if (wmi) {
@@ -1566,12 +1573,6 @@
           parseInt(wmi[4]), parseInt(wmi[5]), parseInt(wmi[6])
         ));
         return d.toLocaleString() + ' (' + getTzLabel() + ')';
-      }
-      // Unix timestamp (number or numeric string > 1e9)
-      var n = Number(val);
-      if (!isNaN(n) && n > 1e9) {
-        var ud = new Date(n < 1e12 ? n * 1000 : n);
-        return ud.toLocaleString() + ' (' + getTzLabel() + ')';
       }
       // ISO / already human-readable
       var d2 = new Date(val);
