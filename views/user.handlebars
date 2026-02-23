@@ -665,7 +665,6 @@
                 <th onclick="sortComplianceOverview('desc')" style="cursor:pointer;">Description &#9660;</th>
                 <th onclick="sortComplianceOverview('user')" style="cursor:pointer;">Last User &#9660;</th>
                 <th>Last IP <span style="font-size:11px;font-weight:normal;">(seen)</span></th>
-                <th>Last Boot Time</th>
                 <th></th>
               </tr>
             </thead>
@@ -701,12 +700,6 @@
                   <td>Last User</td>
                   <td><input type="number" id="ret-user-days" min="1" value="90" style="width:70px;"></td>
                   <td><button onclick="saveDefaultRetention('lastUser')"
-                      style="background:#007bff;color:#fff;">Save</button></td>
-                </tr>
-                <tr>
-                  <td>Boot Time</td>
-                  <td><input type="number" id="ret-boot-days" min="1" value="90" style="width:70px;"></td>
-                  <td><button onclick="saveDefaultRetention('bootTime')"
                       style="background:#007bff;color:#fff;">Save</button></td>
                 </tr>
                 <tr>
@@ -773,19 +766,6 @@
               </tr>
             </thead>
             <tbody id="cev-user-tbl"></tbody>
-          </table>
-          <div class="cev-section-title" style="margin-top:14px;">&#9654; Boot Time History <button
-              onclick="downloadSpecificTableCSV('cev-boot-tbl', 'Boot Time History')"
-              style="float:right; font-size:11px; padding:2px 6px; cursor:pointer; background:#17a2b8; color:#fff; border:none; border-radius:3px;">&#8681;
-              CSV</button></div>
-          <table>
-            <thead>
-              <tr>
-                <th>Recorded At</th>
-                <th>Last Boot Up Time</th>
-              </tr>
-            </thead>
-            <tbody id="cev-boot-tbl"></tbody>
           </table>
           <div class="cev-section-title" style="margin-top:14px;" id="cev-power-title">
             &#9889; Power History
@@ -1552,33 +1532,6 @@
     }
 
     var complianceOverviewData = [];
-    var complianceSortKey = 'name';
-    var complianceSortAsc = true;
-
-    // Parse WMI-style boot date (e.g. "20250221120000.000000+000" or ISO or Unix secs)
-    function fmtBootTime(val) {
-      if (!val) return '-';
-      // Unix timestamp (number or numeric string > 1e9)
-      var n = Number(val);
-      if (!isNaN(n) && n > 1e9) {
-        var ud = new Date(n < 1e12 ? n * 1000 : n);
-        return ud.toLocaleString() + ' (' + getTzLabel() + ')';
-      }
-
-      // WMI format: YYYYMMDDHHmmss.ffffff+offset
-      var wmi = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(String(val));
-      if (wmi) {
-        var d = new Date(Date.UTC(
-          parseInt(wmi[1]), parseInt(wmi[2]) - 1, parseInt(wmi[3]),
-          parseInt(wmi[4]), parseInt(wmi[5]), parseInt(wmi[6])
-        ));
-        return d.toLocaleString() + ' (' + getTzLabel() + ')';
-      }
-      // ISO / already human-readable
-      var d2 = new Date(val);
-      if (!isNaN(d2)) return d2.toLocaleString() + ' (' + getTzLabel() + ')';
-      return String(val);
-    }
 
     function renderComplianceOverview(rows) {
       var tbody = document.getElementById('cev-overview-body');
@@ -1603,7 +1556,6 @@
         html += '<td>' + (desc || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
         html += '<td>' + (dispUser || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
         html += '<td>' + ipCell + '</td>';
-        html += '<td>' + fmtBootTime(row.lastBoot) + '</td>';
         html += '<td><span class="flink" onclick="loadDeviceDetail(\'' + row.nodeId + '\', \'' + name.replace(/'/g, "\\'") + '\')">Details &rsaquo;</span></td>';
         html += '</tr>';
       });
@@ -1667,9 +1619,8 @@
       var events = message.event.events || [];
       var ipTbl = document.getElementById('cev-ip-tbl');
       var userTbl = document.getElementById('cev-user-tbl');
-      var bootTbl = document.getElementById('cev-boot-tbl');
       if (!ipTbl) return;
-      var ipHtml = '', userHtml = '', bootHtml = '';
+      var ipHtml = '', userHtml = '';
       events.forEach(function (ev) {
         if (ev.eventType === 'ipSeen') {
           var ipVal = ev.data.ip;
@@ -1677,8 +1628,6 @@
           ipHtml += '<tr><td>' + fmtTs(ev.timestamp) + '</td><td>' + ipLnk + '</td></tr>';
         } else if (ev.eventType === 'lastUser') {
           userHtml += '<tr><td>' + fmtTs(ev.timestamp) + '</td><td>' + (ev.data.user || '-') + '</td></tr>';
-        } else if (ev.eventType === 'bootTime') {
-          bootHtml += '<tr><td>' + fmtTs(ev.timestamp) + '</td><td>' + fmtBootTime(ev.data.bootTime) + '</td></tr>';
         }
       });
 
@@ -1699,7 +1648,6 @@
 
       ipTbl.innerHTML = ipHtml || '<tr><td colspan="2" style="color:#999;">No records</td></tr>';
       if (userTbl) userTbl.innerHTML = userHtml || '<tr><td colspan="2" style="color:#999;">No records</td></tr>';
-      bootTbl.innerHTML = bootHtml || '<tr><td colspan="2" style="color:#999;">No records</td></tr>';
     };
 
     function loadDeviceDetail(nodeId, name) {
@@ -1709,7 +1657,6 @@
       document.getElementById('cev-ip-tbl').innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
       var ut = document.getElementById('cev-user-tbl');
       if (ut) ut.innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
-      document.getElementById('cev-boot-tbl').innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
       var pt = document.getElementById('cev-power-tbl');
       if (pt) pt.innerHTML = '<tr><td colspan="2" style="color:#999;">Loading...</td></tr>';
 
@@ -1914,7 +1861,7 @@
     };
 
     function saveDefaultRetention(eventType) {
-      var idMap = { ipSeen: 'ret-ip-days', lastUser: 'ret-user-days', bootTime: 'ret-boot-days', powerHistory: 'ret-power-days' };
+      var idMap = { ipSeen: 'ret-ip-days', lastUser: 'ret-user-days', powerHistory: 'ret-power-days' };
       var days = parseInt(document.getElementById(idMap[eventType]).value, 10);
       if (isNaN(days) || days < 1) { alert('Please enter a valid number of days.'); return; }
       var existing = retentionRulesCache.find(function (r) { return r.targetType === 'global' && r.eventType === eventType; });
@@ -1929,7 +1876,7 @@
     function addRetentionOverride() {
       var tbody = document.getElementById('cev-retention-overrides');
       var row = document.createElement('tr');
-      row.innerHTML = '<td><select class="ort-type"><option value="ipSeen">IP Seen</option><option value="lastUser">Last User</option><option value="bootTime">Boot Time</option><option value="powerHistory">Power History</option></select></td>' +
+      row.innerHTML = '<td><select class="ort-type"><option value="ipSeen">IP Seen</option><option value="lastUser">Last User</option><option value="powerHistory">Power History</option></select></td>' +
         '<td><select class="ort-scope"><option value="node">Node</option><option value="mesh">Mesh</option><option value="tag">Tag</option></select></td>' +
         '<td><input type="text" class="ort-target" style="width:120px;" placeholder="ID or name"></td>' +
         '<td><input type="number" class="ort-days" min="1" value="90" style="width:60px;"></td>' +

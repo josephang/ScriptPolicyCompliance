@@ -134,15 +134,6 @@ module.exports.scripttask = function (parent) {
         var nodeId = agent.dbNodeKey;
         var meshId = agent.dbMeshKey || null;
 
-        // Catch instantaneous boot time from agent coreinfo messages
-        if (command && command.action === 'coreinfo' && command.lastbootuptime != null) {
-            var bootTime = String(command.lastbootuptime);
-            obj.db.getLastDeviceEvent(nodeId, 'bootTime').then(lastBoot => {
-                if (!lastBoot.length || lastBoot[0].data.bootTime !== bootTime) {
-                    obj.db.addDeviceEvent(nodeId, meshId, 'bootTime', { bootTime: bootTime });
-                }
-            }).catch(() => { });
-        }
 
         var user = null;
         if (command) {
@@ -284,53 +275,6 @@ module.exports.scripttask = function (parent) {
                 }
             }
 
-            // --- Boot Time: check all known MeshCentral field paths ---
-            var bootTime = null;
-            if (node.osinforaw && node.osinforaw.LastBootUpTime) {
-                bootTime = node.osinforaw.LastBootUpTime;
-            } else if (node.osinfo && node.osinfo.LastBootUpTime) {
-                bootTime = node.osinfo.LastBootUpTime;
-            } else if (node.osinfo && node.osinfo.lastBootUpTime) {
-                bootTime = node.osinfo.lastBootUpTime;
-            } else if (node.lastboottime) {
-                bootTime = node.lastboottime;
-            } else if (node.LastBootUpTime) {
-                bootTime = node.LastBootUpTime;
-            } else if (node.systeminformation && node.systeminformation.BootupTimestamp) {
-                bootTime = node.systeminformation.BootupTimestamp;
-            }
-
-            // Debug: log available fields once if we still can't find boot time
-            if (!bootTime) {
-                var topKeys = Object.keys(node).filter(k => !['_id', 'type'].includes(k));
-                console.log('ScriptPolicyCompliance: Boot time not found for node', nodeId, '— available top-level keys:', topKeys.join(', '));
-                // Try to find any field with "boot" in it
-                for (var k of topKeys) {
-                    if (k.toLowerCase().includes('boot')) {
-                        console.log('ScriptPolicyCompliance: Found boot-related field:', k, '=', JSON.stringify(node[k]));
-                        bootTime = String(node[k]);
-                        break;
-                    }
-                    if (typeof node[k] === 'object' && node[k] !== null) {
-                        var subKeys = Object.keys(node[k]);
-                        for (var sk of subKeys) {
-                            if (sk.toLowerCase().includes('boot')) {
-                                console.log('ScriptPolicyCompliance: Found boot-related sub-field:', k + '.' + sk, '=', JSON.stringify(node[k][sk]));
-                                bootTime = String(node[k][sk]);
-                                break;
-                            }
-                        }
-                        if (bootTime) break;
-                    }
-                }
-            }
-
-            if (bootTime) {
-                var lastBoot = await obj.db.getLastDeviceEvent(nodeId, 'bootTime');
-                if (!lastBoot.length || lastBoot[0].data.bootTime !== bootTime) {
-                    await obj.db.addDeviceEvent(nodeId, meshId, 'bootTime', { bootTime: bootTime });
-                }
-            }
 
             // --- Last Logged-In User: check known field paths ---
             var lastUser = null;
@@ -522,7 +466,7 @@ module.exports.scripttask = function (parent) {
     };
 
     // Default retention (days) per event type if no specific rule configured
-    var _defaultRetentionDays = { ipSeen: 180, lastUser: 180, bootTime: 180, powerHistory: 180 };
+    var _defaultRetentionDays = { ipSeen: 180, lastUser: 180, powerHistory: 180 };
 
     obj.enforceDeviceEventRetention = function () {
         if (!obj.db || typeof obj.db.getRetentionRules !== 'function') return;
@@ -1352,9 +1296,7 @@ module.exports.scripttask = function (parent) {
                         lastIp: nodeMap[nodeId].ipSeen ? nodeMap[nodeId].ipSeen.data.ip : null,
                         lastIpTimestamp: nodeMap[nodeId].ipSeen ? nodeMap[nodeId].ipSeen.timestamp : null,
                         lastUser: nodeMap[nodeId].lastUser ? nodeMap[nodeId].lastUser.data.user : null,
-                        lastUserTimestamp: nodeMap[nodeId].lastUser ? nodeMap[nodeId].lastUser.timestamp : null,
-                        lastBoot: nodeMap[nodeId].bootTime ? nodeMap[nodeId].bootTime.data.bootTime : null,
-                        lastBootTimestamp: nodeMap[nodeId].bootTime ? nodeMap[nodeId].bootTime.timestamp : null
+                        lastUserTimestamp: nodeMap[nodeId].lastUser ? nodeMap[nodeId].lastUser.timestamp : null
                     }));
                     var targets = ['*', 'server-users'];
                     obj.meshServer.DispatchEvent(targets, obj, { nolog: true, action: 'plugin', plugin: 'scripttask', pluginaction: 'complianceOverview', overview: overview });
