@@ -1316,10 +1316,10 @@ module.exports.scripttask = function (parent) {
                 break;
             case 'testComplianceNotify':
                 obj.notifyComplianceFailure(
-                    "This is a test notification generated from the Compliance Policies UI.",
+                    "This is a test notification generated from the ScriptPolicyCompliance UI.",
                     { name: 'SMTP Integration Test Policy' },
                     "test-node-1234",
-                    "Your Compliance Engine Email settings are fully operational.",
+                    "Your ScriptPolicyCompliance Engine Email settings are fully operational.",
                     99
                 );
                 break;
@@ -1666,8 +1666,8 @@ module.exports.scripttask = function (parent) {
         var mailOptions = {
             from: smtpConfig.from || smtpConfig.user,
             to: pluginSmtp && pluginSmtp.toAddress ? pluginSmtp.toAddress : (smtpConfig.from || smtpConfig.user),
-            subject: `[Compliance Alert] Device ${nodeName} failed Policy: ${policy.name}`,
-            text: `Compliance Alert Engine\n\nDevice: ${nodeName}\nPolicy: ${policy.name}\n\nMessage: ${alertMessage}\nExit Code: ${exitCode}\n\nDetails:\n${details}`
+            subject: `[Compliance Alert] ${policy.name}`,
+            text: `Alert Engine\n\nDevice: ${nodeName}\nPolicy: ${policy.name}\n\nMessage: ${alertMessage}\nExit Code: ${exitCode != null ? exitCode : 'N/A'}\n\nDetails:\n${details || ''}`
         };
 
         transporter.sendMail(mailOptions, function (error, info) {
