@@ -1553,7 +1553,7 @@
         var dispUser = row.lastUser || getNodeLastUser(row.nodeId) || '';
         html += '<tr data-name="' + name.toLowerCase() + '" data-user="' + dispUser.toLowerCase() + '" data-desc="' + desc.toLowerCase() + '">';
         var deviceNodeStr = (row.nodeId && row.nodeId.split('/').length > 2) ? row.nodeId.split('/')[2] : '';
-        var deviceLink = '<a href="?gotonode=' + deviceNodeStr + '" onclick="if(typeof gotoDevice === \'function\') { gotoDevice(\'' + row.nodeId + '\', 10); return false; }" style="color:#0066cc;text-decoration:none;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + name + '</a>';
+        var deviceLink = '<a href="?gotonode=' + deviceNodeStr + '" target="_top" onclick="if(typeof parent !== \'undefined\' && typeof parent.gotoDevice === \'function\') { parent.gotoDevice(\'' + row.nodeId + '\', 10); return false; }" style="color:#0066cc;text-decoration:none;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + name + '</a>';
         html += '<td>' + deviceLink + '</td>';
         html += '<td>' + (desc || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
         html += '<td>' + (dispUser || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
