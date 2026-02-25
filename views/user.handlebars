@@ -1548,12 +1548,12 @@
           '<td>' + scriptNames + '</td>' +
           '<td>' + cronStr + '</td>' +
           '<td>' +
-          '<span class="flink" onclick="viewScheduleAssignments(\\'' + s._id + '\\', \\'' + s.name.replace(/' / g, " \\'") + '\\'); ">Assignments</span> | ' +
-      '<span class="flink" onclick="showScheduleForm(\\'' + s._id + '\\');">Edit</span> | ' +
-        '<span class="flink" style="color:#f88" onclick="deleteSchedule(\\'' + s._id + '\\');">Delete</span>' +
-          '</td>';
-      tbody.appendChild(tr);
-    });
+          '<span class="flink" onclick="viewScheduleAssignments(\\'' + s._id + '\\', \\'' + s.name.split("'").join("\\\\'") + '\\'); ">Assignments</span> | ' +
+            '<span class="flink" onclick="showScheduleForm(\\'' + s._id + '\\');">Edit</span> | ' +
+              '<span class="flink" style="color:#f88" onclick="deleteSchedule(\\'' + s._id + '\\');">Delete</span>' +
+                '</td>';
+        tbody.appendChild(tr);
+      });
     }
 
     function showScheduleForm(id) {
