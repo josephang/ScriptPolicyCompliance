@@ -281,6 +281,44 @@ module.exports.CreateDB = function (meshserver) {
             });
         };
 
+        // --- Compliance Power Script Schedules Support ---
+        obj.addSchedule = function (scheduleObj) {
+            scheduleObj.type = 'schedule';
+            if (!scheduleObj.name) scheduleObj.name = "New Schedule";
+            return obj.scriptFile.insertOne(scheduleObj);
+        };
+        obj.updateSchedule = function (id, scheduleObj) {
+            return obj.scriptFile.updateOne({ _id: id, type: 'schedule' }, { $set: scheduleObj });
+        };
+        obj.getSchedules = function () {
+            return obj.scriptFile.find({ type: 'schedule' }).sort({ name: 1 }).toArray();
+        };
+        obj.getSchedule = function (id) {
+            return obj.scriptFile.find({ _id: id, type: 'schedule' }).toArray();
+        };
+        obj.deleteSchedule = function (id) {
+            return obj.scriptFile.deleteMany({
+                $or: [
+                    { _id: id, type: 'schedule' },
+                    { scheduleId: id, type: 'scheduleAssignment' }
+                ]
+            });
+        };
+
+        obj.addScheduleAssignment = function (assignObj) {
+            assignObj.type = 'scheduleAssignment';
+            return obj.scriptFile.insertOne(assignObj);
+        };
+        obj.getScheduleAssignments = function (scheduleId) {
+            return obj.scriptFile.find({ type: 'scheduleAssignment', scheduleId: scheduleId }).toArray();
+        };
+        obj.getAllScheduleAssignments = function () {
+            return obj.scriptFile.find({ type: 'scheduleAssignment' }).toArray();
+        };
+        obj.deleteScheduleAssignment = function (id) {
+            return obj.scriptFile.deleteOne({ _id: id, type: 'scheduleAssignment' });
+        };
+
         // --- Compliance Power Script SMTP Support ---
         obj.getSmtpConfig = function () {
             return obj.scriptFile.find({ type: 'smtpConfig' }).toArray();

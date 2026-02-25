@@ -453,7 +453,8 @@ module.exports.scripttask = function (parent) {
                 });
             })
             .then(() => {
-                obj.makeJobsFromSchedules();
+                obj.processCronSchedules();
+                // obj.makeJobsFromSchedules(); // Legacy schedules disabled 
                 obj.cleanHistory();
             })
             .catch(e => { console.log('PLUGIN: ScriptTask: Queue Run Error: ', e); });
@@ -811,6 +812,94 @@ module.exports.scripttask = function (parent) {
             });
     };
 
+    obj.matchCron = function (val, current) {
+        if (!val || val === '*' || val === '?') return true;
+        let parts = val.toString().split(',');
+        for (let i = 0; i < parts.length; i++) {
+            let p = parts[i].trim();
+            if (p.startsWith('*/')) {
+                let step = parseInt(p.substring(2));
+                if (!isNaN(step) && (current % step) === 0) return true;
+            } else if (p.includes('-')) {
+                let ranges = p.split('-');
+                let start = parseInt(ranges[0]);
+                let end = parseInt(ranges[1]);
+                if (!isNaN(start) && !isNaN(end) && current >= start && current <= end) return true;
+            } else if (parseInt(p) === current) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    obj.processCronSchedules = async function () {
+        try {
+            var schedules = await obj.db.getSchedules();
+            if (!schedules || !schedules.length) return;
+            var assignments = await obj.db.getAllScheduleAssignments();
+
+            let now = new Date();
+            let cMin = now.getMinutes();
+            let cHour = now.getHours();
+            let cDom = now.getDate();
+            let cMonth = now.getMonth() + 1;
+            let cDow = now.getDay();
+
+            for (let s of schedules) {
+                if (obj.matchCron(s.cronMin, cMin) &&
+                    obj.matchCron(s.cronHour, cHour) &&
+                    obj.matchCron(s.cronDom, cDom) &&
+                    obj.matchCron(s.cronMonth, cMonth) &&
+                    obj.matchCron(s.cronDow, cDow)) {
+
+                    let sAssigns = assignments.filter(a => a.scheduleId === s._id);
+                    if (sAssigns.length === 0) continue;
+
+                    let targetNodes = {};
+                    for (let a of sAssigns) {
+                        if (a.targetType === 'node') {
+                            if (obj.meshServer.webserver.wsagents[a.targetId]) {
+                                targetNodes[a.targetId] = true;
+                            }
+                        } else if (a.targetType === 'mesh') {
+                            for (let nid in obj.meshServer.webserver.wsagents) {
+                                let agent = obj.meshServer.webserver.wsagents[nid];
+                                if (agent.dbMeshKey === a.targetId) {
+                                    targetNodes[nid] = true;
+                                }
+                            }
+                        } else if (a.targetType === 'tag') {
+                            for (let nid in obj.meshServer.webserver.wsagents) {
+                                targetNodes[nid] = true;
+                            }
+                        }
+                    }
+
+                    let nodesToRun = Object.keys(targetNodes);
+                    if (nodesToRun.length === 0) continue;
+
+                    for (let scriptId of s.scriptIds) {
+                        for (let nodeId of nodesToRun) {
+                            let pending = await obj.db.getIncompleteJobsForSchedule(s._id);
+                            let dupes = pending.filter(j => j.scriptId === scriptId && j.node === nodeId);
+                            if (dupes.length === 0) {
+                                await obj.db.addJob({
+                                    scriptId: scriptId,
+                                    node: nodeId,
+                                    runBy: 'Cron Scheduler',
+                                    jobSchedule: s._id,
+                                    notifyOnComplete: s.notifyOnComplete,
+                                    notifyCondition: s.notifyCondition,
+                                    notifyCode: s.notifyCode
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e) { console.log('PLUGIN: ScriptTask: processCronSchedules error', e); }
+    };
+
     obj.deleteElement = function (command) {
         var delObj = null;
         obj.db.get(command.id)
@@ -1122,7 +1211,25 @@ module.exports.scripttask = function (parent) {
                         if (job.jobSchedule != null) {
                             return obj.db.update(job.jobSchedule, { lastRun: completeTime })
                                 .then(() => {
-                                    obj.makeJobsFromSchedules(job.jobSchedule);
+                                    // obj.makeJobsFromSchedules(job.jobSchedule);
+                                    if (job.notifyOnComplete) {
+                                        let trigger = false;
+                                        if (job.notifyCondition === 'any') trigger = true;
+                                        else if (job.notifyCondition === '==' && exitCode === job.notifyCode) trigger = true;
+                                        else if (job.notifyCondition === '!=' && exitCode !== job.notifyCode) trigger = true;
+                                        else if (job.notifyCondition === '>' && exitCode > job.notifyCode) trigger = true;
+                                        else if (job.notifyCondition === '<' && exitCode < job.notifyCode) trigger = true;
+
+                                        if (trigger) {
+                                            obj.notifyComplianceFailure(
+                                                "Scheduled Script triggered an email alert.",
+                                                { name: 'Schedule ' + (job.scriptName || job.scriptId) },
+                                                job.node,
+                                                String(retVal || errVal || '').substring(0, 500),
+                                                exitCode
+                                            );
+                                        }
+                                    }
                                 });
                         }
                     })
@@ -1216,6 +1323,46 @@ module.exports.scripttask = function (parent) {
             case 'savePolicyAssignment':
                 obj.db.addPolicyAssignment(command.assignment).then(() => {
                     obj.serveraction({ pluginaction: 'getPolicies' }, myparent, grandparent);
+                });
+                break;
+            case 'getSchedules':
+                obj.db.getSchedules().then(schedules => {
+                    obj.db.getAllScheduleAssignments().then(assignments => {
+                        var targets = ['*', 'server-users'];
+                        obj.meshServer.DispatchEvent(targets, obj, { nolog: true, action: 'plugin', plugin: 'scripttask', pluginaction: 'scheduleData', schedules: schedules, assignments: assignments });
+                    }).catch(e => console.log("ScriptSchedules ERROR getAllScheduleAssignments:", e));
+                }).catch(e => console.log("ScriptSchedules ERROR getSchedules:", e));
+                break;
+            case 'saveSchedule':
+                if (command.schedule._id) {
+                    obj.db.updateSchedule(command.schedule._id, command.schedule).then(() => {
+                        obj.serveraction({ pluginaction: 'getSchedules' }, myparent, grandparent);
+                    }).catch(err => console.log('ScriptSchedules ERROR updating schedule:', err));
+                } else {
+                    obj.db.addSchedule(command.schedule).then(() => {
+                        obj.serveraction({ pluginaction: 'getSchedules' }, myparent, grandparent);
+                    }).catch(err => console.log('ScriptSchedules ERROR adding schedule:', err));
+                }
+                break;
+            case 'deleteSchedule':
+                obj.db.deleteSchedule(command.id).then(() => {
+                    obj.serveraction({ pluginaction: 'getSchedules' }, myparent, grandparent);
+                });
+                break;
+            case 'saveScheduleAssignment':
+                obj.db.addScheduleAssignment(command.assignment).then(() => {
+                    obj.serveraction({ pluginaction: 'getSchedules' }, myparent, grandparent);
+                });
+                break;
+            case 'getScheduleAssignments':
+                obj.db.getScheduleAssignments(command.scheduleId).then(assignments => {
+                    var targets = ['*', 'server-users'];
+                    obj.meshServer.DispatchEvent(targets, obj, { nolog: true, action: 'plugin', plugin: 'scripttask', pluginaction: 'scheduleAssignmentData', assignments: assignments });
+                });
+                break;
+            case 'deleteScheduleAssignment':
+                obj.db.deleteScheduleAssignment(command.id).then(() => {
+                    obj.serveraction({ pluginaction: 'getSchedules' }, myparent, grandparent);
                 });
                 break;
             case 'getSmtpConfig':
