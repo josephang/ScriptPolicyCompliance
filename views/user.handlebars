@@ -212,6 +212,24 @@
           </div>
 
           <div class="panel" style="background-color:#f9f9f9; padding:15px; margin-bottom:20px; border:1px solid #ddd;">
+            <h3 style="margin-top:0; color:#333;">Variables</h3>
+            <div id="variables">
+              <table id="varTbl" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                <tr style="background:#f0f0f0; text-align:left;">
+                  <th style="padding:6px; border:1px solid #ccc;">Variable Name</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Value</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Scope</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Scope Target</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Action</th>
+                </tr>
+              </table>
+              <button onclick="newVar();return false;"
+                style="padding:5px 10px; cursor:pointer; background:#17a2b8; color:#fff; border:none; border-radius:3px;">+
+                Add Variable</button>
+            </div>
+          </div>
+
+          <div class="panel" style="background-color:#f9f9f9; padding:15px; margin-bottom:20px; border:1px solid #ddd;">
             <h3 style="margin-top:0; color:#333;">Run Now</h3>
             <div id="multiRun">
               <div style="margin-bottom:15px; display:flex; gap:10px; align-items:center;">
@@ -242,32 +260,18 @@
                 <div style="flex:1; border:1px solid #ccc; background:#fff; padding:10px;">
                   <table id="mRunTblTag" style="width:100%; border-collapse:collapse;">
                     <tr>
-                      <td style="font-weight:bold; padding-bottom:10px; border-bottom:1px solid #eee;">Tags</td>
+                      <td style="font-weight:bold; padding-bottom:10px; border-bottom:1px solid #eee;">
+                        Tags
+                        <button onclick="addRunNowTag();"
+                          style="float:right; font-size:11px; padding:2px 6px; cursor:pointer; background:#17a2b8; color:#fff; border:none; border-radius:3px;">+
+                          Add Tag</button>
+                      </td>
                     </tr>
                   </table>
                 </div>
               </div>
             </div>
           </div>
-
-          <div class="panel" style="background-color:#f9f9f9; padding:15px; margin-bottom:20px; border:1px solid #ddd;">
-            <h3 style="margin-top:0; color:#333;">Variables</h3>
-            <div id="variables">
-              <table id="varTbl" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
-                <tr style="background:#f0f0f0; text-align:left;">
-                  <th style="padding:6px; border:1px solid #ccc;">Variable Name</th>
-                  <th style="padding:6px; border:1px solid #ccc;">Value</th>
-                  <th style="padding:6px; border:1px solid #ccc;">Scope</th>
-                  <th style="padding:6px; border:1px solid #ccc;">Scope Target</th>
-                  <th style="padding:6px; border:1px solid #ccc;">Action</th>
-                </tr>
-              </table>
-              <button onclick="newVar();return false;"
-                style="padding:5px 10px; cursor:pointer; background:#17a2b8; color:#fff; border:none; border-radius:3px;">+
-                Add Variable</button>
-            </div>
-          </div>
-
         </div>
 
       </div>
@@ -1372,22 +1376,33 @@
     }
     function selNodesByMesh(el) {
       var mid = el.value;
-      var allNodes = Q('mRunTbl').querySelectorAll('input[type="checkbox"][name="runOn[]"]');
+      var allNodes = document.getElementById('mRunTbl').querySelectorAll('input[type="checkbox"][name="runOn[]"]');
       var checked = false;
       if (el.checked) checked = true;
       allNodes.forEach(function (n) {
-        if (nodesObj[n.value].meshid == mid) n.checked = checked;
+        if (nodesObj[n.value] && nodesObj[n.value].meshid == mid) n.checked = checked;
       });
       return true;
     }
     function selAllNodes(el) {
-      var allNodes = Q('mRunTbl').querySelectorAll('input[type="checkbox"][name="runOn[]"]');
+      var allNodes = document.getElementById('mRunTbl').querySelectorAll('input[type="checkbox"][name="runOn[]"]');
       var checked = false;
       if (el.checked) checked = true;
       allNodes.forEach(function (n) {
         n.checked = checked;
       });
       return true;
+    }
+    function addRunNowTag() {
+      var tagName = prompt('Enter the exact Device Tag name to target:');
+      if (!tagName || !tagName.trim()) return;
+      tagName = tagName.trim();
+      var tbl = document.getElementById('mRunTblTag');
+      // Don't add duplicates
+      var existing = tbl.querySelectorAll('input[type="checkbox"][name="runTag[]"]');
+      for (var i = 0; i < existing.length; i++) { if (existing[i].value === tagName) return; }
+      var tpl = '<tr class="stNodeRow"><td><label><input type="checkbox" checked name="runTag[]" value="' + tagName + '"> ' + tagName + '</label></td></tr>';
+      tbl.insertAdjacentHTML('beforeend', tpl);
     }
 
     function redrawScriptTree() {
@@ -1677,6 +1692,9 @@
         parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'deleteSchedule', id: id });
         document.getElementById('colEditSchedule').classList.add('hidden');
         document.getElementById('colAssignSchedule').classList.add('hidden');
+        // Optimistically remove from local array and re-render immediately
+        _schedules = _schedules.filter(function (s) { return s._id !== id; });
+        renderSchedules(_schedules);
       }
     }
 
