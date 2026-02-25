@@ -1038,7 +1038,7 @@
     <td>${getScriptName(p.detectScriptId)}</td>
     <td>${getScriptName(p.remediateScriptId)}</td>
     <td>
-      <span class="flink" onclick="viewAssignments('${p._id}', '${p.name.replace(/'/g, " \\'")}');">Assignments</span> |
+      <span class="flink" onclick="viewAssignments('${p._id}', '${p.name.replace(/'/g, " '")}');">Assignments</span> |
       <span class="flink" onclick="showEditForm('${p._id}');">Edit</span> |
       <span class="flink" style="color:#f88" onclick="deletePolicy('${p._id}');">Delete</span>
     </td>
@@ -1548,10 +1548,10 @@
           '<td>' + scriptNames + '</td>' +
           '<td>' + cronStr + '</td>' +
           '<td>' +
-          '<span class="flink" onclick="viewScheduleAssignments(\\'' + s._id + '\\', \\'' + s.name.split("'").join("\\\\'") + '\\'); ">Assignments</span> | ' +
-            '<span class="flink" onclick="showScheduleForm(\\'' + s._id + '\\');">Edit</span> | ' +
-              '<span class="flink" style="color:#f88" onclick="deleteSchedule(\\'' + s._id + '\\');">Delete</span>' +
-                '</td>';
+          '<span class="flink" onclick="viewScheduleAssignments(\x27' + s._id + '\x27, \x27' + s.name.replace(/\x27/g, "\\\x27") + '\x27); ">Assignments</span> | ' +
+          '<span class="flink" onclick="showScheduleForm(\x27' + s._id + '\x27);">Edit</span> | ' +
+          '<span class="flink" style="color:#f88" onclick="deleteSchedule(\x27' + s._id + '\x27);">Delete</span>' +
+          '</td>';
         tbody.appendChild(tr);
       });
     }
@@ -1680,7 +1680,7 @@
           var m = parent.meshes[a.targetId];
           if (m) targetName = m.name;
         }
-        tr.innerHTML = '<td>' + a.targetType + '</td><td>' + targetName + '</td><td><span class="flink" style="color:#f88" onclick="deleteScheduleAssignment(\\'' + a._id + '\\');">Remove</span></td>';
+        tr.innerHTML = '<td>' + a.targetType + '</td><td>' + targetName + '</td><td><span class="flink" style="color:#f88" onclick="deleteScheduleAssignment(\x27' + a._id + '\x27);">Remove</span></td>';
         tbody.appendChild(tr);
       });
     }
@@ -1888,7 +1888,7 @@
         html += '<td>' + (desc || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
         html += '<td>' + (dispUser || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
         html += '<td>' + ipCell + '</td>';
-        html += '<td><span class="flink" onclick="loadDeviceDetail(\'' + row.nodeId + '\', \'' + name.replace(/'/g, "\\'") + '\')">Details &rsaquo;</span></td>';
+        html += '<td><span class="flink" onclick="loadDeviceDetail(\'' + row.nodeId + '\', \'' + name.replace(/'/g, "'") + '\')">Details &rsaquo;</span></td>';
         html += '</tr>';
       });
       tbody.innerHTML = html;
