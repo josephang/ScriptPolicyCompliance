@@ -1304,7 +1304,7 @@
         var item = { ...i, ...{} };
         if (item.mtype == 2) {
           item.meshName = parent.meshes[item['meshid']].name;
-          if (item._id == parent.currentNode._id) item.checked = 'checked '; else item.checked = '';
+          if (parent.currentNode && item._id == parent.currentNode._id) item.checked = 'checked '; else item.checked = '';
           let tpl = `<tr class="stNodeRow">
         <td><label><input type="checkbox" ${item.checked} name="runOn[]" value="${item._id}">
             <div class="nIcon j${item.icon}"></div>${item.name}

@@ -870,7 +870,10 @@ module.exports.scripttask = function (parent) {
                             }
                         } else if (a.targetType === 'tag') {
                             for (let nid in obj.meshServer.webserver.wsagents) {
-                                targetNodes[nid] = true;
+                                let agent = obj.meshServer.webserver.wsagents[nid];
+                                if (agent.dbNodeKey && agent.dbNodeKey.tags && agent.dbNodeKey.tags.indexOf(a.targetId) !== -1) {
+                                    targetNodes[nid] = true;
+                                }
                             }
                         }
                     }
