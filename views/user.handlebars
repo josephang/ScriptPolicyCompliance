@@ -1613,14 +1613,16 @@
 
         var cronStr = s.cronMin + ' ' + s.cronHour + ' ' + s.cronDom + ' ' + s.cronMonth + ' ' + s.cronDow;
 
-        tr.innerHTML = '<td>' + s.name + '</td>' +
-          '<td>' + scriptNames + '</td>' +
-          '<td>' + cronStr + '</td>' +
-          '<td>' +
-          '<span class="flink" onclick="viewScheduleAssignments(\x27' + s._id + '\x27, \x27' + s.name.replace(/\x27/g, "\\\x27") + '\x27); ">Assignments</span> | ' +
-          '<span class="flink" onclick="showScheduleForm(\x27' + s._id + '\x27);">Edit</span> | ' +
-          '<span class="flink" style="color:#f88" onclick="deleteSchedule(\x27' + s._id + '\x27);">Delete</span>' +
-          '</td>';
+        tr.innerHTML = `
+  <td>${s.name}</td>
+  <td>${scriptNames}</td>
+  <td>${cronStr}</td>
+  <td>
+    <span class="flink" onclick="viewScheduleAssignments('${s._id}', '${s.name.replace(/'/g, " '")}');">Assignments</span> |
+    <span class="flink" onclick="showScheduleForm('${s._id}');">Edit</span> |
+    <span class="flink" style="color:#f88" onclick="deleteSchedule('${s._id}');">Delete</span>
+  </td>
+  `;
         tbody.appendChild(tr);
       });
     }
