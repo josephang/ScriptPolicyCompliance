@@ -1552,7 +1552,7 @@
         var desc = getNodeDesc(row.nodeId);
         var dispUser = row.lastUser || getNodeLastUser(row.nodeId) || '';
         html += '<tr data-name="' + name.toLowerCase() + '" data-user="' + dispUser.toLowerCase() + '" data-desc="' + desc.toLowerCase() + '">';
-        var deviceLink = '<a href="#" onclick="if(parent && parent.window) { parent.window.location.search = \'?node=\' + \'' + row.nodeId + '\'.split(\'/\')[2]; } return false;" style="color:#0066cc;text-decoration:none;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + name + '</a>';
+        var deviceLink = '<a style="cursor:pointer;color:#0066cc;text-decoration:none;" onclick="if(parent && parent.gotoDevice) { parent.gotoDevice(\'' + row.nodeId + '\', 10); }" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + name + '</a>';
         html += '<td>' + deviceLink + '</td>';
         html += '<td>' + (desc || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
         html += '<td>' + (dispUser || '<span style="color:#bbb;font-style:italic;">-</span>') + '</td>';
