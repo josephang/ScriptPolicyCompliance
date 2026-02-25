@@ -458,9 +458,27 @@
         </div>
 
         <div class="col hidden" id="colAssignSchedule">
-          <h2 id="assignScheduleTitle">Assign Schedule</h2>
+          <h2 id="assignScheduleTitle">Assignments</h2>
           <div class="panel">
-            <div class="form-row">
+            <!-- Existing assignments table -->
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+              <thead>
+                <tr>
+                  <th style="background:#f0f0f0;padding:5px;border:1px solid #ccc;">Target Type</th>
+                  <th style="background:#f0f0f0;padding:5px;border:1px solid #ccc;">Target</th>
+                  <th style="background:#f0f0f0;padding:5px;border:1px solid #ccc;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tblScheduleAssignmentsBody">
+                <tr>
+                  <td colspan="3">No assignments. Schedule is inactive.</td>
+                </tr>
+              </tbody>
+            </table>
+            <!-- Add new assignment -->
+            <hr style="margin:10px 0;">
+            <strong>Add Assignment:</strong>
+            <div class="form-row" style="margin-top:8px;">
               <label>Target Type:</label>
               <select id="saTargetType" onchange="updateScheduleTargetList();">
                 <option value="node">Individual Computer</option>
@@ -468,15 +486,19 @@
                 <option value="tag">Device Tag</option>
               </select>
             </div>
-            <div class="form-row">
+            <div class="form-row" id="saTargetIdRow">
               <label>Target:</label>
               <select id="saTargetId" style="width: 250px;"></select>
+            </div>
+            <div class="form-row" id="saTagInputRow" style="display:none;">
+              <label>Tag Name:</label>
+              <input type="text" id="saTagInput" style="width:250px;" placeholder="Enter exact device tag" />
             </div>
             <div style="margin-top: 15px;">
               <button onclick="saveScheduleAssignment();"
                 style="background:#28a745; color:white; border:none; padding:8px 15px; border-radius:3px;">Assign</button>
               <button onclick="cancelAssignSchedule();"
-                style="border:1px solid #ccc; padding:7px 15px; border-radius:3px; margin-left:10px;">Cancel</button>
+                style="border:1px solid #ccc; padding:7px 15px; border-radius:3px; margin-left:10px;">Close</button>
             </div>
           </div>
         </div>
@@ -1709,33 +1731,24 @@
     function renderScheduleAssignments(assigns) {
       _scheduleAssignments = assigns || [];
       var tbody = document.getElementById('tblScheduleAssignmentsBody');
-      if (!tbody) {
-        // If we forgot it in UI html, inject under colAssignSchedule dynamically
-        var targetDiv = document.querySelector('#colAssignSchedule .panel div[style*="margin-top: 15px"]');
-        var tbl = document.createElement('table');
-        tbl.style.width = '100%';
-        tbl.style.marginTop = '15px';
-        tbl.style.borderCollapse = 'collapse';
-        tbl.innerHTML = '<thead><tr><th style="background:#f0f0f0;padding:5px;border:1px solid #ccc;">Target Type</th><th style="background:#f0f0f0;padding:5px;border:1px solid #ccc;">Target Name</th><th style="background:#f0f0f0;padding:5px;border:1px solid #ccc;">Actions</th></tr></thead><tbody id="tblScheduleAssignmentsBody"></tbody>';
-        document.querySelector('#colAssignSchedule .panel').insertBefore(tbl, targetDiv);
-        tbody = document.getElementById('tblScheduleAssignmentsBody');
-      }
+      if (!tbody) return;
       tbody.innerHTML = '';
       if (_scheduleAssignments.length === 0) {
         tbody.innerHTML = '<tr><td colspan="3">No assignments. Schedule is inactive.</td></tr>';
         return;
       }
       _scheduleAssignments.forEach(function (a) {
-        var tr = document.createElement('tr');
         var targetName = a.targetId;
         if (a.targetType === 'node' && parent.nodes) {
-          var n = parent.nodes.find(x => x._id === a.targetId);
+          var nodeList = Array.isArray(parent.nodes) ? parent.nodes : Object.values(parent.nodes);
+          var n = nodeList.find(function (x) { return x._id === a.targetId; });
           if (n) targetName = n.name;
         } else if (a.targetType === 'mesh' && parent.meshes) {
           var m = parent.meshes[a.targetId];
           if (m) targetName = m.name;
         }
-        tr.innerHTML = '<td>' + a.targetType + '</td><td>' + targetName + '</td><td><span class="flink" style="color:#f88" onclick="deleteScheduleAssignment(\x27' + a._id + '\x27);">Remove</span></td>';
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td style="padding:4px;border:1px solid #ccc;">' + a.targetType + '</td><td style="padding:4px;border:1px solid #ccc;">' + targetName + '</td><td style="padding:4px;border:1px solid #ccc;"><span class="flink" style="color:#f88" onclick="deleteScheduleAssignment(\x27' + a._id + '\x27);">Remove</span></td>';
         tbody.appendChild(tr);
       });
     }
@@ -1748,41 +1761,58 @@
     function updateScheduleTargetList() {
       var type = document.getElementById('saTargetType').value;
       var sel = document.getElementById('saTargetId');
+      var idRow = document.getElementById('saTargetIdRow');
+      var tagRow = document.getElementById('saTagInputRow');
+
+      if (type === 'tag') {
+        idRow.style.display = 'none';
+        tagRow.style.display = '';
+        return;
+      }
+      idRow.style.display = '';
+      tagRow.style.display = 'none';
       sel.innerHTML = '';
+
       if (type === 'node') {
-        var nodes = parent.nodes || [];
-        if (Array.isArray(nodes)) {
-          nodes.forEach(function (n) { if (n.mtype == 2 || n.mtype == 3 || n.mtype == 1) sel.options.add(new Option(n.name, n._id)); });
-        } else {
-          for (var key in nodes) { if (nodes[key].mtype == 2 || nodes[key].mtype == 3 || nodes[key].mtype == 1) sel.options.add(new Option(nodes[key].name, key)); }
-        }
+        var nodes = parent.nodes || {};
+        var nodeList = Array.isArray(nodes) ? nodes : Object.values(nodes);
+        nodeList.forEach(function (n) {
+          if (n && (n.mtype == 1 || n.mtype == 2 || n.mtype == 3)) sel.options.add(new Option(n.name, n._id));
+        });
         if (sel.options.length === 0 && parent.currentNode) {
           sel.options.add(new Option(parent.currentNode.name, parent.currentNode._id));
         }
       } else if (type === 'mesh') {
         var meshes = parent.meshes || {};
-        for (var key in meshes) { if (meshes[key].mtype == 2 || meshes[key].mtype == 3 || meshes[key].mtype == 1) sel.options.add(new Option(meshes[key].name, key)); }
-      } else if (type === 'tag') {
-        sel.options.add(new Option("Please enter the precise Tag string here ->", ""));
-        var tagName = prompt("Enter the exact name of the Device Tag:");
-        if (tagName) {
-          sel.options.add(new Option("Tag: " + tagName, tagName)); sel.value = tagName;
+        for (var key in meshes) {
+          sel.options.add(new Option(meshes[key].name, key));
         }
       }
     }
 
     function saveScheduleAssignment() {
       var typ = document.getElementById('saTargetType').value;
-      var tid = document.getElementById('saTargetId').value;
-      if (!tid) return;
+      var tid;
+      if (typ === 'tag') {
+        tid = document.getElementById('saTagInput').value.trim();
+      } else {
+        tid = document.getElementById('saTargetId').value;
+      }
+      if (!tid) { alert('Please select or enter a target.'); return; }
       var a = { scheduleId: _currentScheduleId, targetType: typ, targetId: tid };
       parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'saveScheduleAssignment', assignment: a });
-      cancelAssignSchedule();
+      document.getElementById('saTagInput').value = '';
+      setTimeout(function () {
+        parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getScheduleAssignments', scheduleId: _currentScheduleId });
+      }, 400);
     }
 
     function deleteScheduleAssignment(id) {
       if (confirm('Remove this assignment?')) {
         parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'deleteScheduleAssignment', id: id });
+        setTimeout(function () {
+          parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getScheduleAssignments', scheduleId: _currentScheduleId });
+        }, 400);
       }
     }
 
