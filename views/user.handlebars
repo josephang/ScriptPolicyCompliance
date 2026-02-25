@@ -1445,20 +1445,24 @@
     }
 
     function doOnLoad() {
-      redrawScriptTree();
-      selectPreviouslySelectedScript();
-      updateNodesTable();
-      if (parent.currentNode) {
-        parent.meshserver.send({
-          'action': 'plugin', 'plugin': 'scripttask', 'pluginaction': 'loadNodeHistory',
-          'nodeId': parent.currentNode._id
-        });
-        parent.meshserver.send({
-          'action': 'plugin', 'plugin': 'scripttask', 'pluginaction': 'loadVariables',
-          'nodeId': parent.currentNode._id
-        });
+      try {
+        redrawScriptTree();
+        selectPreviouslySelectedScript();
+        updateNodesTable();
+        if (parent.currentNode) {
+          parent.meshserver.send({
+            'action': 'plugin', 'plugin': 'scripttask', 'pluginaction': 'loadNodeHistory',
+            'nodeId': parent.currentNode._id
+          });
+          parent.meshserver.send({
+            'action': 'plugin', 'plugin': 'scripttask', 'pluginaction': 'loadVariables',
+            'nodeId': parent.currentNode._id
+          });
+        }
+        parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getExternalDownloadServer' });
+      } catch (e) {
+        console.error('ScriptTask doOnLoad error:', e);
       }
-      parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'getExternalDownloadServer' });
     }
 
     function selectPreviouslySelectedScript() {
@@ -2679,7 +2683,8 @@
         e.classList.remove('liselected');
       })
       el.classList.add('liselected');
-      Q('scriptHistory').setAttribute('x-data-id', el.getAttribute('x-data-id'));
+      var histEl = document.getElementById('scriptHistory');
+      if (histEl) histEl.setAttribute('x-data-id', el.getAttribute('x-data-id'));
       if (xdi != el.getAttribute('x-data-folder')) {
         parent.meshserver.send({
           action: 'plugin', plugin: 'scripttask', pluginaction:
