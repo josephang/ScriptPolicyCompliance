@@ -1395,20 +1395,22 @@
       var str = '';
       var indent = 0;
       var folder_id = null;
-      str += '<div style="display: block;overflow-y: auto;max-height: 700px;">'
-      scriptTree.forEach(function (f) {
-        if (f.path != lastpath && f.type == 'folder') {
-          indent = (f.path.match(/\//g) || []).length + 1;
-          var name = f.path.match(/[^\/]+$/);
-          folder_id = f._id;
-          str += '<div draggable="true" x-data-path="' + f.path + '" x-data-id="' + f._id + '" x-data-folder="' + folder_id + '" style="margin-left: ' + indent + 'em;" class="lifolder" onclick="toggleCollapse(this);"><span class="fname">' + name + '</span></div>';
-          lastpath = f.path;
-          indent += 1;
-        }
-        if (f.type != 'folder') {
-          str += '<div id="' + f._id + '" draggable="true"  x-data-path="' + f.path + '" x-data-id="' + f._id + '" x-data-folder="' + folder_id + '" style="margin-left: ' + indent + 'em;" class="liscript" onclick="goScript(this);"><span class="fname">' + f.name + '</span> [<span class="ftype">' + f.filetype + '</span>]</div>';
-        }
-      });
+      str += '<div style="display: block;overflow-y: auto;max-height: 700px;">';
+      if (scriptTree && Array.isArray(scriptTree)) {
+        scriptTree.forEach(function (f) {
+          if (f.path != lastpath && f.type == 'folder') {
+            indent = (f.path.match(/\//g) || []).length + 1;
+            var name = f.path.match(/[^\/]+$/);
+            folder_id = f._id;
+            str += '<div draggable="true" x-data-path="' + f.path + '" x-data-id="' + f._id + '" x-data-folder="' + folder_id + '" style="margin-left: ' + indent + 'em;" class="lifolder" onclick="toggleCollapse(this);"><span class="fname">' + name + '</span></div>';
+            lastpath = f.path;
+            indent += 1;
+          }
+          if (f.type != 'folder') {
+            str += '<div id="' + f._id + '" draggable="true"  x-data-path="' + f.path + '" x-data-id="' + f._id + '" x-data-folder="' + folder_id + '" style="margin-left: ' + indent + 'em;" class="liscript" onclick="goScript(this);"><span class="fname">' + f.name + '</span> [<span class="ftype">' + f.filetype + '</span>]</div>';
+          }
+        });
+      }
       str += '</div>';
       document.getElementById('scriptContainer').innerHTML = str;
       var liScripts = document.querySelectorAll('.liscript');
@@ -1731,6 +1733,9 @@
           nodes.forEach(function (n) { if (n.mtype == 2 || n.mtype == 3 || n.mtype == 1) sel.options.add(new Option(n.name, n._id)); });
         } else {
           for (var key in nodes) { if (nodes[key].mtype == 2 || nodes[key].mtype == 3 || nodes[key].mtype == 1) sel.options.add(new Option(nodes[key].name, key)); }
+        }
+        if (sel.options.length === 0 && parent.currentNode) {
+          sel.options.add(new Option(parent.currentNode.name, parent.currentNode._id));
         }
       } else if (type === 'mesh') {
         var meshes = parent.meshes || {};
