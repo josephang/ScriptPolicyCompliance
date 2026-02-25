@@ -1708,13 +1708,13 @@
     }
 
     function deleteSchedule(id) {
-      parent.setDialogMode(2, 'Delete Schedule', 3, function () {
+      if (confirm('Are you sure you want to delete this schedule? All assignments will also be removed.')) {
         document.getElementById('colEditSchedule').classList.add('hidden');
         document.getElementById('colAssignSchedule').classList.add('hidden');
         _schedules = _schedules.filter(function (s) { return s._id !== id; });
         renderSchedules(_schedules);
         parent.meshserver.send({ action: 'plugin', plugin: 'scripttask', pluginaction: 'deleteSchedule', id: id });
-      }, 'Are you sure you want to delete this schedule and all its assignments?');
+      }
     }
 
     function viewScheduleAssignments(id, name) {
