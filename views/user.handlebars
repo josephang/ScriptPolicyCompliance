@@ -1308,15 +1308,18 @@
       var nodeRowIns = document.querySelector('#mRunTbl');
       var nodesToProcess = [];
       if (parent.nodes) {
-        parent.nodes.forEach(function (n) { nodesToProcess.push(n); });
+        if (Array.isArray(parent.nodes)) {
+          parent.nodes.forEach(function (n) { nodesToProcess.push(n); });
+        } else {
+          for (var key in parent.nodes) nodesToProcess.push(parent.nodes[key]);
+        }
       } else if (parent.currentNode) {
         nodesToProcess.push(parent.currentNode);
       }
-
       if (nodesToProcess.length > 0) {
         nodesToProcess.forEach(function (i) {
           var item = { ...i, ...{} };
-          if (item.mtype == 2 || (parent.currentNode && item._id === parent.currentNode._id)) {
+          if (item._id && (item.mtype == 2 || item.mtype == 3 || item.mtype == 1 || item._id.startsWith('node//') || (parent.currentNode && item._id === parent.currentNode._id))) {
             if (parent.meshes && item['meshid'] && parent.meshes[item['meshid']]) {
               item.meshName = parent.meshes[item['meshid']].name;
             } else {
@@ -2325,6 +2328,9 @@
       if (message.event.error) alert("Schedule Data Error: " + message.event.error);
       renderSchedules(message.event.schedules);
       _scheduleAssignments = message.event.assignments || [];
+      if (_currentScheduleId && !document.getElementById('colAssignSchedule').classList.contains('hidden')) {
+        renderScheduleAssignments(_scheduleAssignments.filter(a => a.scheduleId === _currentScheduleId));
+      }
     }
     parent.pluginHandler.scripttask.scheduleAssignmentData = function (message) {
       renderScheduleAssignments(message.event.assignments);
